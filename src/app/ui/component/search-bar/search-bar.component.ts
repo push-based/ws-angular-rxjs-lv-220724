@@ -1,6 +1,3 @@
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { RxState } from '@rx-angular/state';
-import { select } from '@rx-angular/state/selections';
 import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
@@ -10,9 +7,16 @@ import {
   Input,
   OnInit,
   Output,
-  ViewChild,
+  viewChild,
   ViewEncapsulation,
 } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { coerceObservable } from '@rx-angular/cdk/coercing';
+import { RxState } from '@rx-angular/state';
+import { RxActionFactory } from '@rx-angular/state/actions';
+import { select } from '@rx-angular/state/selections';
+import { RxLet } from '@rx-angular/template/let';
 import {
   filter,
   fromEvent,
@@ -24,10 +28,6 @@ import {
   take,
   withLatestFrom,
 } from 'rxjs';
-import { RxActionFactory } from '@rx-angular/state/actions';
-import { coerceObservable } from '@rx-angular/cdk/coercing';
-import { RxLet } from '@rx-angular/template/let';
-import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 
 type UiActions = {
   searchChange: string;
@@ -37,8 +37,8 @@ type UiActions = {
 };
 
 @Component({
-    selector: 'ui-search-bar',
-    template: `
+  selector: 'ui-search-bar',
+  template: `
     <form
       (submit)="ui.formSubmit($event)"
       #form
@@ -63,25 +63,24 @@ type UiActions = {
       />
     </form>
   `,
-    styleUrls: ['search-bar.component.scss'],
-    changeDetection: ChangeDetectionStrategy.OnPush,
-    encapsulation: ViewEncapsulation.Emulated,
-    providers: [
-        {
-            provide: NG_VALUE_ACCESSOR,
-            multi: true,
-            useExisting: SearchBarComponent,
-        },
-        RxState,
-        RxActionFactory,
-    ],
-    standalone: true,
-    imports: [FastSvgComponent, RxLet],
+  styleUrls: ['search-bar.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.Emulated,
+  providers: [
+    {
+      provide: NG_VALUE_ACCESSOR,
+      multi: true,
+      useExisting: SearchBarComponent,
+    },
+    RxState,
+    RxActionFactory,
+  ],
+  standalone: true,
+  imports: [FastSvgComponent, RxLet],
 })
 export class SearchBarComponent implements OnInit, ControlValueAccessor {
-  @ViewChild('searchInput') inputRef!: ElementRef<HTMLInputElement>;
-  @ViewChild('form') formRef!: ElementRef<HTMLFormElement>;
-
+  inputRef = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  formRef = viewChild<ElementRef<HTMLFormElement>>('form');
   ui = this.actions.create({
     /*searchChange: String,*/
     formSubmit: (e: Event): Event => {
@@ -98,14 +97,14 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
   search$ = this.state.select('search');
   @Output() searchSubmit = this.ui.formSubmit$.pipe(
     withLatestFrom(this.state.select('search')),
-    map(([_, search]) => search)
+    map(([_, search]) => search),
   );
 
   private onChange = (query: string) => {};
 
   private readonly closedFormClick$ = this.ui.formClick$.pipe(
     withLatestFrom(this.state.select('open')),
-    filter(([_, opened]) => !opened)
+    filter(([_, opened]) => !opened),
   );
 
   private outsideClick(): Observable<Event> {
@@ -113,7 +112,7 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
     return fromEvent(this.document, 'click').pipe(
       // forward if the form did NOT triggered the click
       // means we clicked somewhere else in the page but the form
-      filter((e) => !this.formRef.nativeElement.contains(e.target as any))
+      filter((e) => !this.formRef()!.nativeElement.contains(e.target as any)),
     );
   }
 
@@ -129,7 +128,7 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
    * This way we reduce the active event listeners to a minimum.
    */
   private readonly outsideOpenFormClick$ = this.closedFormClick$.pipe(
-    switchMap(() => this.outsideClick().pipe(take(1)))
+    switchMap(() => this.outsideClick().pipe(take(1))),
   );
 
   private readonly classList = this.elementRef.nativeElement.classList;
@@ -138,7 +137,7 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
     private state: RxState<{ search: string; open: boolean }>,
     private actions: RxActionFactory<UiActions>,
     @Inject(ElementRef) private elementRef: ElementRef,
-    @Inject(DOCUMENT) private document: Document
+    @Inject(DOCUMENT) private document: Document,
   ) {
     this.state.set({ open: false });
   }
@@ -151,15 +150,15 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
     this.state.connect(
       'open',
       merge(this.ui.formSubmit$, this.outsideOpenFormClick$),
-      () => false
+      () => false,
     );
     this.state.connect('open', this.closedFormClick$, () => true);
     this.state.hold(this.state.$.pipe(select('search')), (search) => {
       this.onChange(search);
     });
     /*this.state.hold(this.ui.formSubmit$, () => {
-      this.onChange(this.state.get('search'));
-    });*/
+     this.onChange(this.state.get('search'));
+     });*/
   }
   registerOnChange(fn: any): void {
     this.onChange = fn;
@@ -171,7 +170,7 @@ export class SearchBarComponent implements OnInit, ControlValueAccessor {
   }
 
   private readonly focusInput = () => {
-    return this.inputRef.nativeElement.focus();
+    return this.inputRef()!.nativeElement.focus();
   };
 
   private readonly setOpenedStyling = (opened: boolean) => {

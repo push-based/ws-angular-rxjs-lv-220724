@@ -10,9 +10,9 @@
 **Clone and install**
 
 ```bash
-git clone https://github.com/push-based/ws-bizzdesign-250123.git
+git clone https://github.com/push-based/ws-angular-rxjs-lv-220724.git
 
-cd ws-bizzdesign-250123
+cd ws-angular-rxjs-lv-220724
 npm install
 
 # (optional) if the step before didn't work, please try the following
@@ -27,37 +27,24 @@ npm run start
 
 ## Workshop Information
 
-* [ws info doc](https://docs.google.com/document/d/16I-oxD_eGz9r3OdUYBLdyHGg5P-aJAoL3G9Stm5ve6U/edit?usp=drive_link)
-* [slides](https://drive.google.com/drive/u/1/folders/1NL1cp71oONbrYCRGffXodEnU46QlDobv)
+* [ws info doc](https://drive.google.com/drive/folders/1h1-sjmSUmlYY9gP0BubOhZY9suy1skAN?usp=sharing)
+* [slides](https://drive.google.com/drive/folders/1h1-sjmSUmlYY9gP0BubOhZY9suy1skAN?usp=drive_link)
 
 ## Exercises
 
-**RxJS**
-
-* [RxJS introduction - Observables](./exercises/rxjs/rxjs-intro-observable.md)
-* [RxJS introduction - Operators](./exercises/rxjs/rxjs-intro-operators.md)
-* [Higher Order Observables - switchMap: Data Fetching](./exercises/rxjs/data-fetching-switchMap.md)
-* [Higher Order Observables - exhaustMap: Infinite Scroller](./exercises/rxjs/infinite-scroller-exhaustmap.md)
-* [Higher Order Observables - groupBy & mergeMap & exhaustMap: List Updates with loading states](./exercises/rxjs/list-updates-with-mergemap-groupBy.md)
-* [Contextual Template States & Error Handling](./exercises/rxjs/contextual-template-states-error-handling.md)
-* [Side Effects & Subscription Handling](./exercises/rxjs/side-effects-subscription-handling.md)
-* [Multicasting, Join Operators & Derived State](./exercises/rxjs/derived-state-multicasting.md)
-* [Reactive State Management](./exercises/rxjs/local-state-with-rx-state.md)
-* [Optional: Side Effects & Actions](./exercises/rxjs/side-effects-actions.md)
-* [Optional: Marble & other rxjs Testing](exercises/rxjs/marble-testing.md)
-* [Optional: Rate Limiting & Scheduling](./exercises/rxjs/rate-limiting.md)
-
-**Performance**
-
-* [Change Detection - OnPush](./exercises/performance/change-detection%20-%20OnPush.md)
-* [Change Detection - signals](./exercises/performance/change-detection%20-%20signals.md)
-* [Change Detection - zoneless](./exercises/performance/change-detection%20-%20zoneless.md)
-* [Signals Introduction](exercises/performance/signal-introduction.md)
-* [Computed](exercises/performance/computed.md)
-* [Performance Analysis & Flame Charts](./exercises/performance/performance-tab-flame-charts.md)
-* [JS Event Loop](./exercises/performance/event-loop.md)
-* [Scheduling: chunk work](./exercises/performance/scheduling-chunk-work.md)
-* [Network optimizations](./exercises/performance/network-optimizations.md)
-* [Image Optimizations](./exercises/performance/ng-optimized-images.md)
+1. [RxJS introduction - Observables](./exercises/rxjs/rxjs-intro-observable.md)
+2. [RxJS introduction - Operators](./exercises/rxjs/rxjs-intro-operators.md)
+3. [Higher Order Observables - switchMap: Data Fetching](./exercises/rxjs/data-fetching-switchMap.md)
+4. [Higher Order Observables - exhaustMap: Infinite Scroller](./exercises/rxjs/infinite-scroller-exhaustmap.md)
+5. [Higher Order Observables - groupBy & mergeMap & exhaustMap: List Updates with loading states](./exercises/rxjs/list-updates-with-mergemap-groupBy.md)
+6. [Contextual Template States & Error Handling](./exercises/rxjs/contextual-template-states-error-handling.md)
+7. [Side Effects & Subscription Handling](./exercises/rxjs/side-effects-subscription-handling.md)
+8. [Multicasting, Join Operators & Derived State](./exercises/rxjs/derived-state-multicasting.md)
+9. [Reactive State Management](./exercises/rxjs/local-state-with-rx-state.md)
+10. [Signal rxjs interop](./exercises/rxjs/http-with-signals.md)
+11. [Side Effects & Actions](./exercises/rxjs/side-effects-actions.md)
+12. [JS Event Loop](./exercises/performance/event-loop.md)
+13. [Rate Limiting & Scheduling](./exercises/rxjs/rate-limiting.md)
+14. [Marble & other rxjs Testing](exercises/rxjs/marble-testing.md)
 
 

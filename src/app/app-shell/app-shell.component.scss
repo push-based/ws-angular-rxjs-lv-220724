@@ -81,7 +81,7 @@
     right: 0;
     z-index: 1100;
     box-shadow: rgb(0 0 0 / 20%) 0 2px 4px -1px, rgb(0 0 0 / 14%) 0 4px 5px 0,
-      rgb(0 0 0 / 12%) 0 1px 10px 0;
+    rgb(0 0 0 / 12%) 0 1px 10px 0;
     background-color: var(--palette-background-paper);
     height: 64px;
   }
@@ -113,6 +113,9 @@
 
     a {
       @include d-flex-v;
+    }
+    fast-svg {
+      cursor: pointer;
       color: var(--palette-secondary-main);
     }
 
@@ -146,6 +149,7 @@ ui-side-drawer {
 .content {
   min-height: calc(100vh - 72px);
   width: 100%;
+  padding-bottom: 2rem;
 }
 
 :host {

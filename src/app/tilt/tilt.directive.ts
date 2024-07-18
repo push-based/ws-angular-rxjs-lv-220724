@@ -1,8 +1,8 @@
 import { Directive, HostBinding, HostListener, Input } from '@angular/core';
 
 @Directive({
-    selector: '[tilt]',
-    standalone: true,
+  selector: '[tilt]',
+  standalone: true,
 })
 export class TiltDirective {
   @Input('tilt') rotationDegree = 30;

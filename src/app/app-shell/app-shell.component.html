@@ -111,7 +111,7 @@
         [(ngModel)]="searchValue"
       ></ui-search-bar>
       <ui-dark-mode-toggle></ui-dark-mode-toggle>
-      <fast-svg name="account"></fast-svg>
+      <fast-svg [routerLink]="['/my-movies']" name="account" size="30"></fast-svg>
       <!--<button (click)="toggleAuth()">
         {{ loggedIn ? 'log out' : 'log in' }}
       </button>-->

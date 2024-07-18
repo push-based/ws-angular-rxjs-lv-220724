@@ -3,11 +3,31 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "ws-bizzdesign": {
+    "ws-ng-rxjs": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
-          "style": "scss"
+          "prefix": "",
+          "style": "scss",
+          "standalone": true,
+          "skipTests": true,
+          "inlineTemplate": true,
+          "inlineStyle": true
+        },
+        "@schematics/angular:pipe": {
+          "skipTests": true
+        },
+        "@schematics/angular:service": {
+          "skipTests": true
+        },
+        "@schematics/angular:guard": {
+          "skipTests": true
+        },
+        "@schematics/angular:directive": {
+          "skipTests": true
+        },
+        "@schematics/angular:interceptor": {
+          "skipTests": true
         }
       },
       "root": "",
@@ -17,7 +37,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/ws-bizzdesign",
+            "outputPath": "dist/ws-ng-rxjs",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": [
@@ -62,10 +82,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "ws-bizzdesign:build:production"
+              "buildTarget": "ws-ng-rxjs:build:production"
             },
             "development": {
-              "buildTarget": "ws-bizzdesign:build:development"
+              "buildTarget": "ws-ng-rxjs:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -73,28 +93,9 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "buildTarget": "ws-bizzdesign:build"
+            "buildTarget": "ws-ng-rxjs:build"
           }
         },
-        "test": {
-          "builder": "@angular-devkit/build-angular:karma",
-          "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
-            "tsConfig": "tsconfig.spec.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
-            "styles": [
-              "src/styles.scss"
-            ],
-            "scripts": []
-          }
-        }
       }
     }
   }
