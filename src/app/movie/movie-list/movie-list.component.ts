@@ -1,38 +1,41 @@
-import {
-  Component,
-  ElementRef, EventEmitter,
-  Inject,
-  Input, Output,
-  ViewChild,
-} from '@angular/core';
-import { Router } from '@angular/router';
-import { MovieModel } from '../movie-model';
-import { DOCUMENT, NgFor } from '@angular/common';
+import { Component, input, output } from '@angular/core';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+
+import { TMDBMovieModel } from '../../shared/model/movie.model';
 import { MovieCardComponent } from '../movie-card/movie-card.component';
 
 @Component({
-    selector: 'movie-list',
-    templateUrl: './movie-list.component.html',
-    styleUrls: ['./movie-list.component.scss'],
-    standalone: true,
-    imports: [NgFor, MovieCardComponent],
+  selector: 'movie-list',
+  standalone: true,
+  imports: [MovieCardComponent, FastSvgComponent],
+  template: `
+    @for (movie of movies(); track movie.id) {
+      <movie-card
+        [favorite]="favoriteMovieIds().has(movie.id)"
+        (favoriteChange)="favoriteToggled.emit(movie)"
+        [movie]="movie"
+      />
+    } @empty {
+      <div class="no-movies">
+        <fast-svg name="sad" size="50" />
+        There are no movies to show
+      </div>
+    }
+  `,
+  styles: `
+    :host {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(10rem, 35rem));
+      gap: 4rem 2rem;
+      place-content: space-between space-evenly;
+      align-items: start;
+      position: relative;
+    }
+  `,
 })
 export class MovieListComponent {
-  @Input({ required: true }) movies!: MovieModel[];
+  movies = input.required<TMDBMovieModel[]>();
+  favoriteMovieIds = input<Set<string>>(new Set<string>([]));
 
-  @Input() moviesLoading: Record<string, boolean>  | null = null;
-  @Input() favorites: Record<string, MovieModel> | null = null;
-
-  @Output() favoriteToggled = new EventEmitter<MovieModel>();
-
-  @ViewChild('movieList') movieList!: ElementRef<HTMLElement>;
-
-  constructor(
-    @Inject(DOCUMENT) private document: Document,
-    private router: Router
-  ) {}
-
-  navToDetail(movie: MovieModel): void {
-    this.router.navigate(['/movie', movie.id]);
-  }
+  favoriteToggled = output<TMDBMovieModel>();
 }

@@ -32,6 +32,8 @@ npm run start
 
 ## Exercises
 
+[0. Project Setup](./exercises/project%20setup.md)
+
 1. [RxJS introduction - Observables](./exercises/rxjs/rxjs-intro-observable.md)
 2. [RxJS introduction - Operators](./exercises/rxjs/rxjs-intro-operators.md)
 3. [Higher Order Observables - switchMap: Data Fetching](./exercises/rxjs/data-fetching-switchMap.md)

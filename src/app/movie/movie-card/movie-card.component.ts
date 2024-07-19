@@ -1,46 +1,81 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { FastSvgComponent } from '@push-based/ngx-fast-svg';
-import { MovieModel } from '../movie-model';
-import { MovieImagePipe } from '../movie-image.pipe';
-import { NgFor, NgIf, UpperCasePipe } from '@angular/common';
-import { StarRatingComponent } from '../../ui/pattern/star-rating/star-rating.component';
+import { UpperCasePipe } from '@angular/common';
+import { Component, input, model } from '@angular/core';
+
+import { TMDBMovieModel } from '../../shared/model/movie.model';
 import { TiltDirective } from '../../tilt/tilt.directive';
+import { StarRatingComponent } from '../../ui/pattern/star-rating/star-rating.component';
+import { MovieImagePipe } from '../movie-image.pipe';
 
 @Component({
   selector: 'movie-card',
-  templateUrl: './movie-card.component.html',
-  styleUrls: ['./movie-card.component.scss'],
   standalone: true,
-  imports: [
-    TiltDirective,
-    StarRatingComponent,
-    NgFor,
-    UpperCasePipe,
-    MovieImagePipe,
-    NgIf,
-    FastSvgComponent,
-  ],
-})
-export class MovieCardComponent implements OnInit {
-  @Input() movie!: MovieModel;
-
-  @Input() loading = false;
-  @Input() favorite = false;
-
-  @Output() selected = new EventEmitter<MovieModel>();
-  @Output() toggleFavorite = new EventEmitter<MovieModel>();
-
-  ngOnInit() {
-    if (!this.movie) {
-      throw new Error(
-        `MovieCardComponent expects movie to be set, ${this.movie} given`,
-      );
+  imports: [StarRatingComponent, TiltDirective, UpperCasePipe, MovieImagePipe],
+  template: `
+    <div class="movie-card">
+      <img
+        tilt
+        [tiltDegree]="5"
+        class="movie-image"
+        [alt]="movie().title"
+        [src]="movie().poster_path | movieImage: 780"
+      />
+      <div class="movie-card-content">
+        <div class="movie-card-title">{{ movie().title | uppercase }}</div>
+        <div class="movie-card-rating">
+          <ui-star-rating [rating]="movie().vote_average" />
+        </div>
+      </div>
+      <button
+        class="favorite-indicator"
+        [class.is-favorite]="favorite()"
+        (click)="toggleFavorite()"
+      >
+        @if (favorite()) {
+          I like it
+        } @else {
+          Please like me
+        }
+      </button>
+    </div>
+  `,
+  styles: `
+    .movie-card {
+      transition: box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0s;
+      transform-origin: bottom;
     }
-  }
 
-  movieClicked() {
-    this.selected.emit(this.movie);
-  }
+    .movie-card:hover {
+      .movie-image {
+        transform: scale(1);
+      }
+      box-shadow: 0 0 4px 2px rgba(0, 0, 0, 0.6);
+    }
 
-  divs = new Array(150).fill(null).map((v, i) => i);
+    .movie-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1) 0s;
+      transform: scale(0.97);
+    }
+
+    .movie-card-content {
+      text-align: center;
+      padding: 1.5rem 3rem;
+      font-size: 1.5rem;
+    }
+
+    .movie-card-title {
+      font-size: 2rem;
+    }
+  `,
+})
+export class MovieCardComponent {
+  movie = input.required<TMDBMovieModel>();
+
+  favorite = model(false);
+
+  toggleFavorite() {
+    this.favorite.update((f) => !f);
+  }
 }

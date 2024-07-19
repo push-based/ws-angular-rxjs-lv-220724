@@ -1,33 +1,41 @@
+import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { UntypedFormArray, UntypedFormControl, UntypedFormGroup, Validators, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { filter } from 'rxjs';
-import { MovieModel } from '../movie-model';
-import { MovieService } from '../movie.service';
+import {
+  FormsModule,
+  ReactiveFormsModule,
+  UntypedFormArray,
+  UntypedFormControl,
+  UntypedFormGroup,
+  Validators,
+} from '@angular/forms';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
-import { NgIf, NgTemplateOutlet, NgFor } from '@angular/common';
+import { filter } from 'rxjs';
+
+import { MovieService } from '../movie.service';
+import { MovieModel } from '../movie-model';
 import { MovieSearchControlComponent } from '../movie-search-control/movie-search-control.component';
 
 @Component({
-    selector: 'app-my-movie-list',
-    templateUrl: './my-movie-list.component.html',
-    styleUrls: ['./my-movie-list.component.scss'],
-    standalone: true,
-    imports: [
-        FormsModule,
-        ReactiveFormsModule,
-        MovieSearchControlComponent,
-        NgIf,
-        NgTemplateOutlet,
-        NgFor,
-        FastSvgComponent,
-    ],
+  selector: 'app-my-movie-list',
+  templateUrl: './my-movie-list.component.html',
+  styleUrls: ['./my-movie-list.component.scss'],
+  standalone: true,
+  imports: [
+    FormsModule,
+    ReactiveFormsModule,
+    MovieSearchControlComponent,
+    NgIf,
+    NgTemplateOutlet,
+    NgFor,
+    FastSvgComponent,
+  ],
 })
 export class MyMovieListComponent implements OnInit {
   myMovieForm = new UntypedFormGroup({
     movie: new UntypedFormControl(null, [
       Validators.required,
       (ctrl) => {
-        return !!this.movieService
+        return this.movieService
           .getFavorites()
           .find((favorite) => favorite.id === ctrl.value?.id)
           ? {
@@ -46,7 +54,7 @@ export class MyMovieListComponent implements OnInit {
   favorites: UntypedFormArray = new UntypedFormArray(
     this.movieService
       .getFavorites()
-      .map((favorite) => this.createMovieForm(favorite))
+      .map((favorite) => this.createMovieForm(favorite)),
   );
 
   favoritesForm = new UntypedFormGroup({ favorites: this.favorites });
@@ -91,7 +99,7 @@ export class MyMovieListComponent implements OnInit {
   }
 
   private createMovieForm(
-    movie: MovieModel & { comment: string }
+    movie: MovieModel & { comment: string },
   ): UntypedFormGroup {
     return new UntypedFormGroup({
       id: new UntypedFormControl(movie.id),

@@ -1,36 +1,37 @@
-import { Directive, HostBinding, HostListener, Input } from '@angular/core';
+import { Directive, ElementRef, input } from '@angular/core';
 
 @Directive({
   selector: '[tilt]',
   standalone: true,
 })
 export class TiltDirective {
-  @Input('tilt') rotationDegree = 30;
+  tiltDegree = input(5);
 
-  @HostListener('mouseenter', ['$event.pageX', '$event.target'])
-  onMouseEnter(pageX: number, target: HTMLElement) {
-    const pos = determineDirection(pageX, target);
-
-    this.rotation =
-      pos === 0
-        ? `rotate(${this.rotationDegree}deg)`
-        : `rotate(-${this.rotationDegree}deg)`;
-  }
-
-  @HostListener('mouseleave')
-  onMouseLeave() {
-    this.rotation = 'rotate(0deg)';
-  }
-
-  @HostBinding('style.transform')
   rotation = 'rotate(0deg)';
-}
 
-/**
- * returns 0 if entered from left, 1 if entered from right
- */
-function determineDirection(pos: number, element: HTMLElement): 0 | 1 {
-  const width = element.clientWidth;
-  const middle = element.getBoundingClientRect().left + width / 2;
-  return pos > middle ? 1 : 0;
+  rotate(event: MouseEvent) {
+    const pos = this.determineDirection(event.pageX);
+    return `rotate(${pos === 0 ? `${this.tiltDegree()}deg` : `${-this.tiltDegree()}deg`})`;
+  }
+
+  reset() {
+    return 'rotate(0deg)';
+  }
+
+  constructor(private elementRef: ElementRef<HTMLElement>) {
+    // mouseenter => rotate
+    // mouseleave => reset
+    // elementRef.nativeElement.style.transform = value;
+  }
+
+  /**
+   *
+   * returns 0 if entered from left, 1 if entered from right
+   */
+  determineDirection(pos: number): 0 | 1 {
+    const width = this.elementRef.nativeElement.clientWidth;
+    const middle =
+      this.elementRef.nativeElement.getBoundingClientRect().left + width / 2;
+    return pos > middle ? 1 : 0;
+  }
 }

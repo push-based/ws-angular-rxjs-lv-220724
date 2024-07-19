@@ -1,23 +1,26 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+
+import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
 import { TMDBMovieModel } from '../../shared/model/movie.model';
 import { MovieService } from '../movie.service';
-import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
 import { MovieListComponent } from '../movie-list/movie-list.component';
-import { NgIf } from '@angular/common';
 
 @Component({
   selector: 'movie-list-page',
-  templateUrl: './movie-list-page.component.html',
-  styleUrls: ['./movie-list-page.component.scss'],
+  template: `
+    @if (movies) {
+      <movie-list [movies]="movies" />
+    }
+  `,
   standalone: true,
-  imports: [NgIf, MovieListComponent, ElementVisibilityDirective],
+  imports: [MovieListComponent, ElementVisibilityDirective],
 })
 export class MovieListPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
   movies: TMDBMovieModel[];
 
-  constructor(
-    private activatedRoute: ActivatedRoute,
-    private movieService: MovieService,
-  ) {}
+  constructor() {}
 }
