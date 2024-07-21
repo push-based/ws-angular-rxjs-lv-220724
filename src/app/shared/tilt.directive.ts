@@ -7,21 +7,19 @@ import { Directive, ElementRef, input } from '@angular/core';
 export class TiltDirective {
   tiltDegree = input(5);
 
-  rotation = 'rotate(0deg)';
+  constructor(private elementRef: ElementRef<HTMLElement>) {
+    // mouseenter => getRotationDegree
+    // mouseleave => getDefaultRotation
+    // elementRef.nativeElement.style.transform = value;
+  }
 
-  rotate(event: MouseEvent) {
+  getRotationDegree(event: MouseEvent) {
     const pos = this.determineDirection(event.pageX);
     return `rotate(${pos === 0 ? `${this.tiltDegree()}deg` : `${-this.tiltDegree()}deg`})`;
   }
 
-  reset() {
+  getDefaultRotation() {
     return 'rotate(0deg)';
-  }
-
-  constructor(private elementRef: ElementRef<HTMLElement>) {
-    // mouseenter => rotate
-    // mouseleave => reset
-    // elementRef.nativeElement.style.transform = value;
   }
 
   /**

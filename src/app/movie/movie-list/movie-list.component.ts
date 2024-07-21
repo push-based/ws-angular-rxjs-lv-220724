@@ -1,4 +1,5 @@
 import { Component, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 
 import { TMDBMovieModel } from '../../shared/model/movie.model';
@@ -7,10 +8,12 @@ import { MovieCardComponent } from '../movie-card/movie-card.component';
 @Component({
   selector: 'movie-list',
   standalone: true,
-  imports: [MovieCardComponent, FastSvgComponent],
+  imports: [MovieCardComponent, FastSvgComponent, RouterLink],
   template: `
     @for (movie of movies(); track movie.id) {
       <movie-card
+        [routerLink]="['/movie', movie.id]"
+        [loading]="favoritesLoading().has(movie.id)"
         [favorite]="favoriteMovieIds().has(movie.id)"
         (favoriteChange)="favoriteToggled.emit(movie)"
         [movie]="movie"
@@ -36,6 +39,7 @@ import { MovieCardComponent } from '../movie-card/movie-card.component';
 export class MovieListComponent {
   movies = input.required<TMDBMovieModel[]>();
   favoriteMovieIds = input<Set<string>>(new Set<string>([]));
+  favoritesLoading = input(new Set<string>());
 
   favoriteToggled = output<TMDBMovieModel>();
 }

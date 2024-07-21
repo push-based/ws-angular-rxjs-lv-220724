@@ -1,35 +1,28 @@
-import { Component, OnInit } from '@angular/core';
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import { Observable, switchMap } from 'rxjs';
-import { MovieModel } from '../movie-model';
+
+import { TMDBMovieModel } from '../../shared/model/movie.model';
 import { MovieService } from '../movie.service';
 import { MovieListComponent } from '../movie-list/movie-list.component';
-import { NgIf, AsyncPipe } from '@angular/common';
 
 @Component({
-    selector: 'app-movie-search-page',
-    templateUrl: './movie-search-page.component.html',
-    styleUrls: ['./movie-search-page.component.scss'],
-    standalone: true,
-    imports: [
-        NgIf,
-        MovieListComponent,
-        AsyncPipe,
-    ],
+  selector: 'movie-search-page',
+  template: `
+    @if (movies$ | async; as movies) {
+      <movie-list [movies]="movies" />
+    }
+  `,
+  standalone: true,
+  imports: [MovieListComponent, AsyncPipe, FastSvgComponent],
 })
-export class MovieSearchPageComponent implements OnInit {
-  movies$!: Observable<MovieModel[]>;
+export class MovieSearchPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
 
-  constructor(
-    private movieService: MovieService,
-    private activatedRoute: ActivatedRoute
-  ) {}
-
-  ngOnInit(): void {
-    this.movies$ = this.activatedRoute.params.pipe(
-      switchMap((params) => {
-        return this.movieService.searchMovies(params['query']);
-      })
-    );
-  }
+  movies$: Observable<TMDBMovieModel[]> = this.activatedRoute.params.pipe(
+    switchMap((params) => this.movieService.searchMovies(params['query'])),
+  );
 }

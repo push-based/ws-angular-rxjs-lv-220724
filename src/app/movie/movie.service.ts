@@ -48,12 +48,12 @@ export class MovieService {
     );
   }
 
-  getMovieRecommendations(
-    id: string,
-  ): Observable<{ results: TMDBMovieModel[] }> {
-    return this.httpClient.get<{ results: TMDBMovieModel[] }>(
-      `${environment.tmdbBaseUrl}/3/movie/${id}/recommendations`,
-    );
+  getMovieRecommendations(id: string): Observable<TMDBMovieModel[]> {
+    return this.httpClient
+      .get<{
+        results: TMDBMovieModel[];
+      }>(`${environment.tmdbBaseUrl}/3/movie/${id}/recommendations`)
+      .pipe(map(({ results }) => results));
   }
 
   getMovieById(id: string): Observable<TMDBMovieDetailsModel> {

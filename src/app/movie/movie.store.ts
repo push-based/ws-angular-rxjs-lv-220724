@@ -5,7 +5,6 @@ import { rxActions } from '@rx-angular/state/actions';
 import { exhaustMap, Observable, scan, startWith } from 'rxjs';
 
 import { TMDBMovieModel } from '../shared/model/movie.model';
-import { Suspensify } from '../shared/suspensify';
 import { MovieService } from './movie.service';
 
 @Injectable({ providedIn: 'root' })
@@ -26,7 +25,7 @@ export class MovieStore {
   state = rxState<{
     favoriteIds: Set<string>;
     favoritesLoading: Set<string>;
-    movies: Suspensify<TMDBMovieModel[]>;
+    movies: any /*Suspensify<TMDBMovieModel[]>*/;
   }>(({ connect, get, set }) => {
     set({
       favoriteIds: new Set<string>(),
@@ -34,8 +33,12 @@ export class MovieStore {
     });
     // connect('movies')
     // connect('favoriteIds')
-    // connect('actions.toggleFavorite$')
+    // connect(toggleFavorite$)
   });
+
+  // selections & derived state
+
+  // movies$ = this.state.select('movies');
 
   private paginate(
     requestFn: (page: number) => Observable<TMDBMovieModel[]>,

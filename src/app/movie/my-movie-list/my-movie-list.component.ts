@@ -1,22 +1,23 @@
 import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import {
+  FormArray,
+  FormControl,
+  FormGroup,
   FormsModule,
   ReactiveFormsModule,
-  UntypedFormArray,
-  UntypedFormControl,
   UntypedFormGroup,
   Validators,
 } from '@angular/forms';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import { filter } from 'rxjs';
 
+import { TMDBMovieModel } from '../../shared/model/movie.model';
 import { MovieService } from '../movie.service';
-import { MovieModel } from '../movie-model';
 import { MovieSearchControlComponent } from '../movie-search-control/movie-search-control.component';
 
 @Component({
-  selector: 'app-my-movie-list',
+  selector: 'my-movie-list',
   templateUrl: './my-movie-list.component.html',
   styleUrls: ['./my-movie-list.component.scss'],
   standalone: true,
@@ -31,8 +32,8 @@ import { MovieSearchControlComponent } from '../movie-search-control/movie-searc
   ],
 })
 export class MyMovieListComponent implements OnInit {
-  myMovieForm = new UntypedFormGroup({
-    movie: new UntypedFormControl(null, [
+  myMovieForm = new FormGroup({
+    movie: new FormControl(null, [
       Validators.required,
       (ctrl) => {
         return this.movieService
@@ -44,14 +45,14 @@ export class MyMovieListComponent implements OnInit {
           : null;
       },
     ]),
-    comment: new UntypedFormControl('', [
+    comment: new FormControl('', [
       Validators.required,
       Validators.minLength(5),
     ]),
   });
 
   // for easier access to the array
-  favorites: UntypedFormArray = new UntypedFormArray(
+  favorites = new FormArray(
     this.movieService
       .getFavorites()
       .map((favorite) => this.createMovieForm(favorite)),
@@ -77,8 +78,8 @@ export class MyMovieListComponent implements OnInit {
   add(): void {
     if (this.myMovieForm.valid) {
       const favorite = {
-        ...this.myMovieForm.value.movie,
-        comment: this.myMovieForm.value.comment,
+        ...(this.myMovieForm.getRawValue().movie! as TMDBMovieModel),
+        comment: this.myMovieForm.value.comment!,
       };
       this.favorites.push(this.createMovieForm(favorite));
       this.reset();
@@ -99,12 +100,12 @@ export class MyMovieListComponent implements OnInit {
   }
 
   private createMovieForm(
-    movie: MovieModel & { comment: string },
-  ): UntypedFormGroup {
-    return new UntypedFormGroup({
-      id: new UntypedFormControl(movie.id),
-      title: new UntypedFormControl(movie.title, Validators.required),
-      comment: new UntypedFormControl(movie.comment, [
+    movie: TMDBMovieModel & { comment: string },
+  ): FormGroup {
+    return new FormGroup({
+      id: new FormControl(movie.id),
+      title: new FormControl(movie.title, Validators.required),
+      comment: new FormControl(movie.comment, [
         Validators.required,
         Validators.minLength(5),
       ]),

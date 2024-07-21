@@ -83,21 +83,21 @@ export class MovieSearchControlComponent
 
   ngAfterViewInit(): void {
     if (this.movieCache) {
-      this.searchInput().nativeElement.value = this.movieCache.title;
+      this.searchInput()!.nativeElement.value = this.movieCache.title;
     }
   }
 
   selectMovie(movie: MovieModel) {
     this.onChange(movie);
     this.searchTerm$.next('');
-    this.searchInput().nativeElement.value = movie.title;
+    this.searchInput()!.nativeElement.value = movie.title;
   }
 
   writeValue(movie: MovieModel): void {
     if (!this.searchInput()) {
       this.movieCache = movie;
     } else {
-      this.searchInput().nativeElement.value = movie ? movie.title : '';
+      this.searchInput()!.nativeElement.value = movie ? movie.title : '';
     }
     this.searchTerm$.next('');
   }

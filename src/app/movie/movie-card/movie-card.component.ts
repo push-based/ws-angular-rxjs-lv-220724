@@ -1,15 +1,22 @@
 import { UpperCasePipe } from '@angular/common';
-import { Component, input, model } from '@angular/core';
+import { Component, input, output } from '@angular/core';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 
 import { TMDBMovieModel } from '../../shared/model/movie.model';
-import { TiltDirective } from '../../tilt/tilt.directive';
+import { TiltDirective } from '../../shared/tilt.directive';
 import { StarRatingComponent } from '../../ui/pattern/star-rating/star-rating.component';
 import { MovieImagePipe } from '../movie-image.pipe';
 
 @Component({
   selector: 'movie-card',
   standalone: true,
-  imports: [StarRatingComponent, TiltDirective, UpperCasePipe, MovieImagePipe],
+  imports: [
+    StarRatingComponent,
+    TiltDirective,
+    UpperCasePipe,
+    MovieImagePipe,
+    FastSvgComponent,
+  ],
   template: `
     <div class="movie-card">
       <img
@@ -27,8 +34,11 @@ import { MovieImagePipe } from '../movie-image.pipe';
       </div>
       <button
         class="favorite-indicator"
+        [class.loading]="loading()"
         [class.is-favorite]="favorite()"
-        (click)="toggleFavorite()"
+        (click)="
+          $event.stopPropagation(); $event.preventDefault(); toggleFavorite()
+        "
       >
         @if (favorite()) {
           I like it
@@ -72,10 +82,12 @@ import { MovieImagePipe } from '../movie-image.pipe';
 })
 export class MovieCardComponent {
   movie = input.required<TMDBMovieModel>();
+  loading = input(false);
 
-  favorite = model(false);
+  favorite = input(false);
+  favoriteChange = output<boolean>();
 
   toggleFavorite() {
-    this.favorite.update((f) => !f);
+    this.favoriteChange.emit(!this.favorite());
   }
 }

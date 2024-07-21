@@ -313,7 +313,6 @@ movies$ = this.activatedRoute.params.pipe(
   }),
   retry({ delay: 1000, count: 2 }),
   catchError(e => {
-    this.error$.next();
     console.error('an error occurred when searching', e);
     return NEVER; // return NEVER, as we don't want to send data to the let directive
   })

@@ -1,17 +1,12 @@
-import {
-  NavigationEnd,
-  Router,
-  RouterLinkActive,
-  RouterLink,
-} from '@angular/router';
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+
 import { MovieService } from '../movie/movie.service';
 import { DarkModeToggleComponent } from '../ui/component/dark-mode-toggle/dark-mode-toggle.component';
-import { FormsModule } from '@angular/forms';
-import { SearchBarComponent } from '../ui/component/search-bar/search-bar.component';
 import { HamburgerButtonComponent } from '../ui/component/hamburger-button/hamburger-button.component';
-import { AsyncPipe } from '@angular/common';
-import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { SearchBarComponent } from '../ui/component/search-bar/search-bar.component';
 import { SideDrawerComponent } from '../ui/component/side-drawer/side-drawer.component';
 
 @Component({
@@ -28,10 +23,12 @@ import { SideDrawerComponent } from '../ui/component/side-drawer/side-drawer.com
     SearchBarComponent,
     FormsModule,
     DarkModeToggleComponent,
-    AsyncPipe,
   ],
 })
 export class AppShellComponent {
+  private movieService = inject(MovieService);
+  private router = inject(Router);
+
   sideDrawerOpen = false;
 
   private _searchValue = '';
@@ -43,8 +40,5 @@ export class AppShellComponent {
     return this._searchValue;
   }
 
-  constructor(
-    private movieService: MovieService,
-    private router: Router,
-  ) {}
+  constructor() {}
 }
