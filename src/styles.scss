@@ -28,7 +28,7 @@ body {
   color: var(--palette-text-primary);
   background-color: var(--palette-background-default);
   transition: color var(--duration) var(--timing),
-    background-color var(--duration) var(--timing);
+  background-color var(--duration) var(--timing);
 
   &.modal-visible {
     .content {
@@ -78,5 +78,91 @@ body.dark img:not([src*='.svg']) {
       height: 11px;
       z-index: 1090;
     }
+  }
+}
+
+.favorite-widget {
+  display: flex;
+  gap: .5rem;
+  font-size: 1.5rem;
+  margin-bottom: 4rem;
+}
+
+.movie-card {
+  cursor: pointer;
+}
+
+.no-movies {
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+movie-list:has(.movie-list-title) {
+  margin-top: 95px;
+}
+.movie-list-title {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  height: 95px;
+  top: -95px;
+  left: 0;
+  right: 0;
+
+  .movie-list-header {
+
+  }
+}
+
+.favorite-indicator {
+  border: unset;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+
+  color: var(--palette-text-disabled);
+
+  &::before {
+    content: "❤️";
+    color: rgba(255, 0, 0, .3);
+  }
+
+  &.loading {
+    &::before {
+      transform: scale(1);
+      animation: pulse 500ms infinite;
+    }
+  }
+
+  &:hover {
+    color: var(--palette-text-primary);
+    &::before {
+      color: rgba(255, 0, 0, .5);
+    }
+  }
+
+  &.is-favorite {
+    color: var(--palette-text-primary);
+    &::before {
+      color: red;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(0, 0, 0, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
   }
 }

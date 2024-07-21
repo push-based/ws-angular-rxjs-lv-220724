@@ -11,186 +11,286 @@ The goal of this exercise is to learn how to make use of contextual template sta
 application a better experience consuming it. On top of that you will learn how to implement contextual template states
 in a very developer friendly way.
 
-In this exercise we want to make use of the `rxLet` directive in order to provide our users contextual state information
-derived from network request we perform to receive values for the users search input.
+In this exercise we want to combine several rxjs operators to implement a dataflow that transform a network request
+into a stateful stream that represents `suspense`, `error` & `next` states.
 
-## Initial Suspense State
+The general pattern behind it looks like this:
 
-As a first step, let's handle the suspense state of the template (the loader).
-The initial suspense state is already in place with the `*ngIf async hack`.
-
-Start by introducing the `rxLet` Directive to your template in favor of `*ngIf`.   
-You can import the `RxLet` from `'@rx-angular/template/let'`.
-
-Be aware that you need to bind the `movie$` directly to the `rxLet` and get rid of the `async` pipe as well.
-
-<details>
-  <summary>Initial Suspense state</summary>
-
-```html
-<!--movie-search-page.component.html-->
-
-<ng-container *rxLet="movies$; let movies; suspense: suspense">
-
-  <!-- the template-->
-
-</ng-container>
-
-<ng-template #suspense>
-  <div class="loader"></div>
-</ng-template>
-
-
-```
-
-</details>
-
-Great, serve the application and take a look if the initial suspense state is displayed correctly.
-You probably want to open your `devtools => Network` tab and hit `disable cache`
-
-```bash
-  ng serve
-```
-
-## Suspense on new search: TemplateTrigger
-
-We still miss a crucial feature for our `suspense` state to be perfect. When performing a new search, we want to show
-the user again the `suspense` template.
-For this to work, we need to proactively give the `rxLet` Directive a hint that it should switch to the `suspense`
-state.
-
-We do this by introducing a `suspense$: Subject<void>` in our `MovieSearchPageComponent`.
-
-The `MovieSearchPageComponent` needs to call it's `next()` method whenever a new search is fired. This way we can switch to
-the suspense template while we are waiting for the next result to be received.
-
-Back in the template, use the `suspenseTrigger: suspense$` input property of the `rxLet` directive to bind the subject to
-the directive.
-
-<details>
-  <summary>Solution: Template Trigger</summary>
+**Very high level**
 
 ```ts
 
-readonly
-suspense$ = new Subject<void>();
-
-movies$ = this.activatedRoute.params.pipe(
-  switchMap((params) => {
-    // call the suspenseTrigger when getting new route params
-    this.suspense$.next();
-    return this.movieService.searchMovies(params.query);
-  })
-);
-
+trigger$.pipe(
+  switchMap(() => fetch().pipe(
+    map(), // transform into value state
+    startWith(), // start with initial value -> suspend before new data arrives
+    catchError() // catch errors and transform into error state
+  ))
+)
 ```
 
-```html
-<!--movie-search-page.component.html-->
+**Concrete implementation**
+```ts
 
-<ng-container *rxLet="movies$; let movies; suspense: suspense; suspenseTrigger: suspense$">
+const state$: Observable<{ error: boolean; suspense: boolean; data: any[]}> = trigger$.pipe(
+  switchMap(() => fetchData().pipe(
+    map(values => ({ data: values, suspense: false, error: false })), // 👈️ values have arrived
+    startWith({
+      error: false,
+      suspense: true,
+      data: []
+    }), // 👈️ start with a suspense state
+    catchError(() => of({ error: true, data: [], suspense: false })) // 👈️ an error occurred
+  ))
+)
+```
 
-</ng-container>
+>[!NOTE]
+> This exercise is made in the `src/app/movie/movie-search-page/movie-search-page.component.ts` for the sake of simplicity.
+> You are reaching it by entering a search term into the search bar in the top bar of the application ;)
+
+## 0. Create `Suspensify` interface
+
+In `movie-search-page.component.ts`, create a new generic `interface Suspensify<T>` that should have the following properties:
+
+* `error: boolean`
+* `suspense: boolean`
+* `data: T`
+
+<details>
+  <summary>interface Suspensify<T></summary>
+
+```ts
+// movie-search-page.component.ts
+
+interface Suspensify<T> {
+  error: boolean;
+  suspense: boolean;
+  data: T;
+}
+
 ```
 
 </details>
 
-Great, serve the application and take a look if the initial suspense state as well as the intermediate suspense state are
-displayed correctly. You probably want to open your `devtools => Network` tab and hit `disable cache`.
-
-```bash
-ng serve
-```
-
-## Error Template
-
-The only thing left is having a dedicated `error` template.
-
-Inside `MovieSearchPageComponent`s template, define an `ng-template` with the name `error`.
-Assign it to the `rxLet` Directives `error:` input property.
-
-If you want, you can use the `<fast-svg name="error" />` component for your error template.
+Great, now type the existing `movie$` field to be `Observable<Suspensify<TMDBMovieModel[]>>`
 
 <details>
-  <summary>Solution: Error Template</summary>
+  <summary>apply Suspensify</summary>
 
-```html
-<!--movie-search-page.component.html-->
+```ts
+import { TMDBMovieModel } from '../../shared/model/movie.model';
 
-<ng-container *rxLet="movies$; let movies; error: error; suspense: suspense; suspenseTrigger: suspense$">
 
-</ng-container>
+interface Suspensify<T> {
+  error: boolean;
+  suspense: boolean;
+  data: T;
+}
 
-<ng-template #error>
-  <h2>An error occurred</h2>
-  <div>
-    <fast-svg name="error"/>
-  </div>
-</ng-template>
+/**/
+export class MovieSearchPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+  
+  //                👇️👇️👇️
+  movies$: Observable<Suspensify<TMDBMovieModel[]>> = this.activatedRoute.params.pipe(
+    switchMap((params) => {
+      return this.movieService.searchMovies(params['query']);
+    }),
+  );
+}
+
 ```
 
 </details>
 
-Great, serve the application and take a look if all the contextual states are
-displayed correctly. You probably want to open your `devtools => Network` tab and hit `disable cache`.
+Well done, let's jump into the first step of this exercise!
 
-For raising an error, navigate to the `MovieSearchComponent`, do a search, go to the `Network Tab` and select `Offline` in
-the `throttling` dropdown selection.
+## 1. Suspense state
 
-Or, simply search for `throwError`, which is a special keyword that throws an error in the application.
+As a first step, let's handle the value transformation & the suspense state of the template (the loader).
 
-```bash
-ng serve
-```
+### 1.1 Stream transformation
 
-You should now see your error template after the error was thrown.
+The first goal should be to take care of emitting an initial suspense state as well as transforming
+the http result to match the return value of `{ suspense: boolean; error: boolean; data: TMDBMovieModel[] }`.
 
-## Catch error and log it
+Use the `map` operator to transform the result into `{ suspense: false, data: movies, error: false }`.
 
-The error is still uncaught inside your components state. Let's introduce a simple error logging mechanism whenever the
-search raised an error. Use the `catchError` operator to catch the error.
+Use `startWith({ suspense: true, error: false, data: [] })` in order to emit the initial suspense state.
 
-In order to still be able to show the error template, you need to manually set it, as we did for the suspense template - with a template trigger.
+> [!NOTE]
+> Apply the operators to the `inner` observable: `this.movieService.searchMovies(params['query']).pipe()`
 
 <details>
-  <summary>catchError & log</summary>
+  <summary>suspensify starting implementation</summary>
 
 ```ts
 
 // movie-search-page.component.ts
 
-readonly error$ = new Subject<void>();
-
-movies$ = this.activatedRoute.params.pipe(
-  switchMap((params) => {
-    return this.movieService.searchMovies(params['query']);
-  }),
-  catchError(e => {
-    this.error$.next();
-    console.error('an error occurred when searching', e);
-    return NEVER; // return NEVER, as we don't want to send data to the let directive
-  })
-);
-
-```
-
-Don't forget to bind the trigger in the template.
-
-```html
-
-<!-- movie-search-page.component.html -->
-
-<ng-container *rxLet="movies$; let movies; suspense: loader; error: error; suspenseTrigger: suspense$; errorTrigger: error$">
-</ng-container>
-
+movies$: Observable<Suspensify<TMDBMovieModel[]>> =
+  this.activatedRoute.params.pipe(
+    switchMap((params) => {
+      return this.movieService.searchMovies(params['query']).pipe(
+        map((movies) => ({
+          suspense: false,
+          data: movies,
+          error: false,
+        })),
+        startWith({
+          suspense: true,
+          error: false,
+          data: [],
+        }),
+      );
+    }),
+  );
 
 ```
 
 </details>
 
-Cool, raise the error again and see if it gets logged into the console as well as the error template is shown.
+### 1.2 Adjust template
 
-## Retry before showing the error template
+Of course we also need to adjust our template. The `movies$` observable now actually returns a kind of state.
+As such, we need to treat the outer `@if(movies$ | async; as state)` as a wrapper to unpack the value inside of that
+very scope.
+
+Let's name it like a `state` in the template and pass `state.movies` to the `<movie-list` component.
+
+```html
+@if (movies$ | async; as state) {
+  <movie-list [movies]="state.movies" />
+}
+```
+
+Of course that is only part of the solution. We want to display three different states in the template:
+
+* `suspense`
+* `error`
+* `data`
+
+
+Let's build an inner `@if, @else if, @else` control flow to render different templates:
+
+```html
+@if (state.suspense) {
+  <!--loader-->
+} @else if (state.error) {
+ <!--error -->
+} @else {
+  <!-- values -->
+  <movie-list [movies]="state.data" />
+}
+```
+
+For the loader take the following template:
+
+```html
+<div class="loader"></div>
+```
+
+For the error take the following template:
+
+```html
+<h2>An error occurred</h2>
+<div>
+  <fast-svg size="350" name="sad" />
+</div>
+```
+
+
+<details>
+  <summary>Adjust template: access suspensify state</summary>
+
+```html
+<!-- movie-search-page.component.ts -->
+
+@if (movies$ | async; as state) {
+  @if (state.suspense) {
+    <div class="loader"></div>
+  } @else if (state.error) {
+  <h2>An error occurred</h2>
+  <div>
+    <fast-svg size="350" name="sad" />
+  </div>
+  } @else {
+    <movie-list [movies]="state.data" />
+  }
+}
+
+```
+
+</details>
+
+## 2. Error Handling
+
+### 2.1 Produce the error
+
+> [!TIP]
+> You can produce an error by searching for the keyword `throwError` (case sensitive) in the application.
+
+Please produce an error!
+
+### 2.2 Catch & display the error
+
+You'll notice it's still uncaught inside your components state. Let's introduce a simple error logging mechanism whenever the
+search raised an error. Use the `catchError` operator to catch the error.
+
+On top of `map` & `startWith`, apply the `catchError` operator as well to the inner observable.
+
+> [!NOTE]
+> `catchError` requires you to return an `Observable`. As we only want to return a static state, use `of()` in order
+> to return an `Observable` of a static value.
+
+As we want to display the error message, we want to return the following state:
+
+```ts
+{
+  error: true,
+  suspense: false,
+  data: []
+}
+```
+
+Feel free to add any additional error logging
+
+<details>
+  <summary>Catch & display the error</summary>
+
+```ts
+
+// movie-search-page.component.ts
+
+
+movies$: Observable<Suspensify<TMDBMovieModel[]>> =
+  this.activatedRoute.params.pipe(
+    switchMap((params) => {
+      return this.movieService.searchMovies(params['query']).pipe(
+        /* other operators */
+        catchError((e) => {
+          console.error('an error occurred when searching', e);
+          return of({
+            error: true,
+            suspense: false,
+            data: [],
+          });
+        }),
+      );
+    }),
+  );
+
+```
+
+</details>
+
+Great job! Raise the error again and see if it gets logged into the console as well as the error template is shown.
+You should also try to recover from the error state. Test if your application is able to perform another search
+after you've shown the error template.
+
+## 3. Retry before showing the error template
 
 Sometimes processes or requests can be retried in order to still get a valid result.
 Try to also make use of the `retry` operator so that your failed request is repeated twice before showing the actual error template.
@@ -222,81 +322,83 @@ movies$ = this.activatedRoute.params.pipe(
 ```
 </details>
 
-## Restore Functionality on error
+## Full Solution
 
-You have probably noticed that search is not usable after an error occurred. This is because an Observable cannot recover from
-an error state on its own. It needs manual assistance in order to reset the observable.
-
-The only actual option we have is to give the stream a replacement observable to continue. Right now, our replacement stream is `NEVER`.
-
-Let's change that and instead of returning `NEVER` we need to return our original stream again.
-
-This will be a tricky one, as the `activatedRoute.params` is a `BehaviorSubject`, thus always emitting a value on subscription.
-You will need to find a way to not run into an infinite loop, so be careful :)
+Below you find the full solution:
 
 <details>
-  <summary>restore functionality on catchError -> INFINITE LOOP</summary>
-
-> Be careful, you end up in an infinite loop with this
+  <summary>Full Solution: MovieSearchPageComponent</summary>
 
 ```ts
 
-// movie-search-page.component.ts
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { catchError, map, Observable, of, retry, startWith, switchMap } from 'rxjs';
 
-movies$ = this.activatedRoute.params.pipe(
-  switchMap((params) => {
-    this.supsense$.next();
-    return this.movieService.searchMovies(params['query']);
-  }),
-  retry({ delay: 1000, count: 2 }),
-  catchError(e => {
-    this.error$.next();
-    console.error('an error occurred when searching', e);
-    return this.movies$; // we return the stream again to keep on listening to activatedRoute params and do the search
-  })
-);
+import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { MovieService } from '../movie.service';
+import { MovieListComponent } from '../movie-list/movie-list.component';
 
-```
-
-</details>
-
-In order to fix that issue, you can create a function that creates the search movies stream. As a parameter it should take
-a variable that indicates if you want to skip the first result of the `params` observable or not.
-Initially you want to have it repeat the latest value, on consequent calls you don't want that.
-
-Use the `skip` operator in order to configure if you like skip the first emission or not. On `catchError` you can
-recursively call the observable creation function again instead of returning a hot stream.
-
-<details>
-  <summary>restore functionality on catchError -> actually working</summary>
-
-```ts
-
-// movie-search-page.component.ts
-
-private searchMovies = (hot = true) => {
-  return this.activatedRoute.params.pipe(
-    skip(hot ? 0 : 1),
-    switchMap((params) => {
-      this.suspense$.next();
-      return this.movieService.searchMovies(params['query']).pipe(
-        retry({ count: 2, delay: 1000 }),
-        catchError(e => {
-          this.error$.next();
-          console.error('an error occurred when searching', e);
-          return this.searchMovies(false);
-        })
-      );
-    }),
-  );
+interface Suspensify<T> {
+  error: boolean;
+  suspense: boolean;
+  data: T;
 }
 
-movies$ = this.searchMovies();
+@Component({
+  selector: 'movie-search-page',
+  template: `
+    @if (movies$ | async; as state) {
+      @if (state.suspense) {
+        <div class="loader"></div>
+      } @else if (state.error) {
+        <h2>An error occurred</h2>
+        <div>
+          <fast-svg size="350" name="sad" />
+        </div>
+      } @else {
+        <movie-list [movies]="state.data" />
+      }
+    }
+  `,
+  standalone: true,
+  imports: [MovieListComponent, AsyncPipe, FastSvgComponent],
+})
+export class MovieSearchPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
+  movies$: Observable<Suspensify<TMDBMovieModel[]>> =
+    this.activatedRoute.params.pipe(
+      switchMap((params) => {
+        return this.movieService.searchMovies(params['query']).pipe(
+          map((movies) => ({
+            suspense: false,
+            data: movies,
+            error: false,
+          })),
+          startWith({
+            suspense: true,
+            error: false,
+            data: [],
+          }),
+          retry({ count: 2, delay: 1000 }),
+          catchError((e) => {
+            console.error('an error occurred when searching', e);
+            return of({
+              error: true,
+              suspense: false,
+              data: [],
+            });
+          }),
+        );
+      }),
+    );
+}
+
 
 ```
 
 </details>
-
-Nice job, go ahead and repeat the process from before. Raise the error and see if the functionality is still there by searching for something else
-after the error was thrown.
-

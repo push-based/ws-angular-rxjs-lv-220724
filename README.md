@@ -1,11 +1,11 @@
-# Push-Based Angular RxJS & Performance Workshop
+# Push-Based Angular RxJS Workshop
 
 ## Installation Instructions
 
 **System Requirements**
 
-* `node 18`
-* `npm 8`
+* `node > 18`
+* `npm > 8`
 
 **Clone and install**
 
@@ -33,20 +33,25 @@ npm run start
 ## Exercises
 
 [0. Project Setup](./exercises/project%20setup.md)
+[0.1 RxJS Intro Project Setup](https://github.com/push-based/js-playground)
 
-1. [RxJS introduction - Observables](./exercises/rxjs/rxjs-intro-observable.md)
-2. [RxJS introduction - Operators](./exercises/rxjs/rxjs-intro-operators.md)
-3. [Higher Order Observables - switchMap: Data Fetching](./exercises/rxjs/data-fetching-switchMap.md)
-4. [Higher Order Observables - exhaustMap: Infinite Scroller](./exercises/rxjs/infinite-scroller-exhaustmap.md)
-5. [Higher Order Observables - groupBy & mergeMap & exhaustMap: List Updates with loading states](./exercises/rxjs/list-updates-with-mergemap-groupBy.md)
-6. [Contextual Template States & Error Handling](./exercises/rxjs/contextual-template-states-error-handling.md)
-7. [Side Effects & Subscription Handling](./exercises/rxjs/side-effects-subscription-handling.md)
-8. [Multicasting, Join Operators & Derived State](./exercises/rxjs/derived-state-multicasting.md)
-9. [Reactive State Management](./exercises/rxjs/local-state-with-rx-state.md)
-10. [Signal rxjs interop](./exercises/rxjs/http-with-signals.md)
-11. [Side Effects & Actions](./exercises/rxjs/side-effects-actions.md)
-12. [JS Event Loop](./exercises/performance/event-loop.md)
-13. [Rate Limiting & Scheduling](./exercises/rxjs/rate-limiting.md)
-14. [Marble & other rxjs Testing](exercises/rxjs/marble-testing.md)
+1. [RxJS introduction - first steps](./exercises/rxjs/rxjs-intro-1-first-steps.md)
+2. [RxJS introduction - from event](./exercises/rxjs/rxjs-intro-2-from-event.md)
+3. [RxJS introduction - operators](./exercises/rxjs/rxjs-intro-3-operators.md)
+4. [RxJS in Angular - Intro](./exercises/rxjs/rxjs-in-angular-intro)
+5. [RxJS in Angular - AsyncPipe](./exercises/rxjs/rxjs-in-angular-async-pipe.md)
+6. [Higher Order Observables - switchMap: Data Fetching](./exercises/rxjs/data-fetching-switchMap.md)
+7. [Higher Order Observables - exhaustMap: Infinite Scroller](./exercises/rxjs/infinite-scroller-exhaustmap.md)
+8. [Higher Order Observables - mergeMap: List Updates with mergeMap](./exercises/rxjs/list-updates-with-mergemap.md)
+9. [Higher Order Observables - groupBy & mergeMap & exhaustMap: List Updates with loading states](./exercises/rxjs/list-updates-with-mergemap-groupBy.md)
+10. [Contextual Template States & Error Handling](./exercises/rxjs/contextual-template-states-error-handling.md)
+11. [Custom OperatorFunction: suspensify](./exercises/rxjs/custom-operator-function.md)
+12. [Multicasting, Join Operators & Derived State](./exercises/rxjs/derived-state-multicasting.md)
+13. [Reactive State Management](./exercises/rxjs/local-state-with-rx-state.md)
+14. [Signal rxjs interop](./exercises/rxjs/http-with-signals.md)
+15. [Side Effects & Actions](./exercises/rxjs/side-effects-actions.md)
+16. [JS Event Loop](./exercises/performance/event-loop.md)
+17. [Rate Limiting & Scheduling](./exercises/rxjs/rate-limiting.md)
+18. [Marble & other rxjs Testing](exercises/rxjs/marble-testing.md)
 
 

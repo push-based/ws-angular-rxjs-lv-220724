@@ -6,7 +6,7 @@ We want to deepen our knowledge about higher order observables, especially how t
 By using the `async` pipe in the template, we also get rid of the subscription management in our component.
 
 
-## Improve fetch movies with switchMap
+## 1. Improve fetch movies with switchMap
 
 Currently, data fetching is being made with nested subscriptions. Nested subscriptions are hard to read and always are solvable with one of the higher order observable operators.
 In our case, as we are handling data fetching on navigation, `switchMap` is the tool of choice.
@@ -44,7 +44,7 @@ Cool, run your application and repeat the process from before. You should see th
 
 ![cancelled-requests.png](../images/cancelled-requests.png)
 
-## Subscription handling in template
+## 2. Subscription handling in template
 
 Next, we want to get rid of the manual subscription in our component and instead letting the template handle our subscription automatically.
 Create a `movies$` Observable. It should just be the stream of movies without the subscription.
@@ -70,7 +70,12 @@ movies$ = this.activatedRoute.params.pipe(
 
 </details>
 
-Now refactor your template to consume the newly created Observable. You can use the ngIf-async-hack: `*ngIf="movies$ | async as movies`.
+Now refactor your template to consume the newly created Observable.
+We are going to use the `AsyncPipe` (`| async`) to do so. Use the `as` keyword in order to extract a variable `movies` from the stream.
+
+```ts
+@if (movies$ | async; as movies)
+```
 
 <details>
   <summary>MovieListPageComponent movies$ | async</summary>
@@ -79,11 +84,9 @@ Now refactor your template to consume the newly created Observable. You can use 
 
 <!-- movie-list-page.component.html -->
 
-<ng-container *ngIf="movies$ | async as movies">
-  
-  <!-- The template code -->
-  
-</ng-container>
+@if (movies$ | async; as movies) {
+  <movie-list [movies]="movies" />
+}
 
 ```
 
@@ -91,33 +94,31 @@ Now refactor your template to consume the newly created Observable. You can use 
 
 Run the application and navigate between different movie categories. Validate everything is working as expected.
 
-## Loading Indicator
+## 3. Loading Indicator
 
 Currently, users with bad network conditions will have a hard time understanding if the application is in a frozen or
 a processing state. Let's implement some user feedback whenever we start loading new movies.
 
-The idea is simple. We just have to make sure to display a loading template whenever the list of movies is empty.
+The idea is simple. We just have to make sure to display a loading template whenever the list of movies has a `nullish` value.
 
 Let's implement the template part first.
 
 There is already a pre-built loading spinner available, insert a `div.loader` to show it.
 
+Your task is to use the `@else` control flow to show `div.loader` when movies has no value.
+
 <details>
-  <summary>Show Loading Indicator when movies are empty</summary>
+  <summary>Show Loading Indicator when movies are nullish</summary>
 
 ```html
 
-<!-- movie-list-page.component.html -->
+<!-- movie-list-page.component.ts -->
 
-<ng-container *ngIf="movies$ | async as movies; else: loader">
-  
-  <!-- The template code -->
-  
-</ng-container>
-
-<ng-template #loader>
+@if (movies$ | async) {
+  <movie-list [movies]="movies" />
+} @else {
   <div class="loader"></div>
-</ng-template>
+}
 
 ```
 
@@ -128,11 +129,21 @@ Serve your application, you should notice that a loading spinner appears on init
 Let's go ahead and fix that as well.
 
 We want to return an `undefined` value whenever we receive new routeParams to make sure the condition in our template is true on route changes.
+In order to achieve that, we can make use of yet another rxjs operator: `startWith`.
 
-Please use either `concat` or `startWith` in order to first emit an undefined value before fetching the movies.
+Apply the `startWith` operator to each observable returned within the `switchMap`, e.g. 
+
+```ts
+if (params['category']) {
+   return this.movieService.getMovieList(params['category']).pipe(
+       startWith(undefined) // 👈️
+   );
+ }
+```
+
 
 <details>
-  <summary>Show loader on route switch</summary>
+  <summary>Show loader on route switch: `startWith`</summary>
 
 ```ts
 
@@ -157,3 +168,64 @@ movies$ = this.activatedRoute.params.pipe(
 </details>
 
 Serve your application, you should now notice that a loading spinner appears on initial load and on route changes as well.
+
+
+## Full Solution
+
+<details>
+  <summary>Data fetching w/ switchMap: MovieSearchComponent</summary>
+
+```ts
+
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { Observable, startWith, switchMap } from 'rxjs';
+
+import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
+import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { MovieService } from '../movie.service';
+import { MovieListComponent } from '../movie-list/movie-list.component';
+
+@Component({
+  selector: 'movie-list-page',
+  template: `
+    @if (movies$ | async; as movies) {
+      <movie-list [movies]="movies" />
+    } @else {
+      <div class="loader"></div>
+    }
+  `,
+  standalone: true,
+  imports: [
+    MovieListComponent,
+    ElementVisibilityDirective,
+    AsyncPipe,
+    FastSvgComponent,
+  ],
+})
+export class MovieListPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
+  movies$: Observable<TMDBMovieModel[] | undefined> =
+    this.activatedRoute.params.pipe(
+      switchMap((params) => {
+        if (params['category']) {
+          return this.movieService
+            .getMovieList(params['category'])
+            .pipe(startWith(undefined));
+        } else {
+          return this.movieService
+            .getMoviesByGenre(params['id'])
+            .pipe(startWith(undefined));
+        }
+      }),
+    );
+}
+
+
+```
+
+</details>

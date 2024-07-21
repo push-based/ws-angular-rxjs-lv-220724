@@ -1,22 +1,32 @@
 # Infinite Scrolling with exhaustMap
 
-# Goal
-
 We want to deepen our knowledge about higher order observables, by getting familiar with the `exhaustMap` operator.
 We will use it in order to implement an infinite scroll solution that paginates http calls on scroll events.
-
-## Infinite Scrolling
-
-Our trigger is already implemented and ready to use. The `ElementVisibilityDirective` emits an event everytime it
-is visible to the user, indicating we've reached the bottom of the list and we should start fetching a new page.
 
 As we don't want to over-fetch or fetch multiple pages at once, `exhaustMap` is the operator of choice. It drops
 consequent requests as long as we have a request inflight.
 
-The infinite scrolling should be part of the `MovieListPageComponent`s movie fetching logic.
+## 1. Infinite Scrolling
 
-First, add a trigger that should kick off the pagination event. Create a local `paginate$: Subject<void>` and bind it
+> [!NOTE]
+> This exercise is being implemented in the `MovieListPageComponent` (`src/app/movie/movie-list-page/movie-list-page.component.ts`)
+
+### 1.2 The Trigger
+
+As a first step we need a trigger that kicks off the process of re-fetching data. 
+The template part acting as trigger is already implemented and ready to use. The `ElementVisibilityDirective` emits an event everytime it
+is visible to the user, indicating we've reached the bottom of the list and we should start fetching a new page.
+
+In order to have trigger in our component, create a local `paginate$: Subject<void>` and bind it
 to the `(elementVisible)` output event of the `ElementVisibildityDirective`.
+
+Create a `<div (elementVisible)="paginate$.next()"></div>` below (as a sibling) of the `<movie-list />` component
+in the template of `MovieListPageComponent`.
+
+```html
+<movie-list [movies]="movies" />
+<div (elementVisible)="paginate$.next()"></div>
+```
 
 <details>
   <summary>MovieListPageComponent paginate$ trigger</summary>
@@ -31,21 +41,23 @@ readonly paginate$ = new Subject<void>();
 
 ```html
 
-<!-- movie-list-page.component.html -->
+<!-- movie-list-page.component.ts -->
 
-<movie-list
-  *ngIf="movies && movies.length > 0; else: elseTmpl"
-  [movies]="movies">
-</movie-list>
-
-<!-- use (elementVisible) here -->
-<div (elementVisible)="paginate$.next()"></div>
+@if (movies$ | async; as movies) {
+  <movie-list [movies]="movies" />
+  <div (elementVisible)="paginate$.next()"></div>
+} @else {
+  <div class="loader"></div>
+}
 
 ```
 
 </details>
 
 Cool, now let's implement the actual pagination logic.
+
+### 1.2 Pagination Skeleton
+
 For our use case, please implement a function `paginate(requestFn: (page: number) => Observable<TMDBMovieModel[]>): Observable<TMDBMovieModel[]>`.
 The `paginate` method should take a function that resolves a number input into `Observable<TMDBMovieModel[]>` as input.
 
@@ -75,6 +87,8 @@ You can already go ahead and use the pagination function where it should be. We 
 logic within the `movie$` Observable. Instead of returning the service call directly, we call the `paginate`
 method and pass the function to it.
 
+Of course, apply the `startWith(undefined)` to each stream!
+
 <details>
   <summary>paginate usage</summary>
 
@@ -83,32 +97,66 @@ method and pass the function to it.
 // movie-list-page.component.ts
 
 
-movies$ = this.activatedRoute.params.pipe(
-    switchMap(params => {
+movies$: Observable<TMDBMovieModel[] | undefined> =
+  this.activatedRoute.params.pipe(
+    switchMap((params) => {
       if (params['category']) {
-        /* add paginate here 👇 */
         return this.paginate((page) =>
-          this.movieService.getMovieList(params['category'], page)
-        );
+          this.movieService.getMovieList(params['category'], page),
+        ).pipe(startWith(undefined));
       } else {
-        /* add paginate here 👇 */
         return this.paginate((page) =>
-          this.movieService.getMoviesByGenre(params['id'], page)
-        );
+          this.movieService.getMoviesByGenre(params['id'], page),
+        ).pipe(startWith(undefined));
       }
-    }
-  )
-);
+    }),
+  );
 
 ```
 
 </details>
 
 
+### 1.3 Pagination Core Logic
+
+As we don't want to over-fetch or fetch multiple pages at once, `exhaustMap` is the operator of choice. It drops
+consequent requests as long as we have a request inflight.
+
 Now, implement the core logic of the pagination. We want to subscribe to the `paginate$` trigger and `exhaustMap` to the
 given `requestFn` input.
 
 In order to accumulate the paged results into a single array, we can use a local cache.
+
+The following steps need to be done:
+* create cache: `let cache: TMDBMovieModel[] = [];`
+* subscribe to paginate$ as a trigger: `return this.paginate$.pipe()`
+* kick off the process immediately on subscription: `startWith(void 0)`
+* apply `exhaustMap`
+  * in the callback, access the `index` (second argument), as we use it as page for our pagination: `(_, index) => {}`
+  * use the `index + 1` as argument for the `requestFn` and return the `cache` + the current result: `requestFn(index + 1).pipe(map((movies) => [...cache, ...movies]))`
+* fill cache with latest values `tap(movies => cache = movies)`
+
+Here is the rough concept which can be used as a starting point. It already includes the local cache part.
+
+```ts
+
+// movie-list-page.component.ts
+
+private paginate(
+  requestFn: (page: number) => Observable<TMDBMovieModel[]>
+): Observable<TMDBMovieModel[]> {
+  // local array to store all movies
+  let cache: TMDBMovieModel[] = [];
+  
+  return this.paginate$.pipe(
+    /* exhaustMap */
+    /* -- call requestFn inside */
+    tap(movies => cache = movies)
+  );
+}
+
+```
+
 
 <details>
   <summary>pagination core logic</summary>
@@ -121,16 +169,17 @@ private paginate(
   requestFn: (page: number) => Observable<TMDBMovieModel[]>
 ): Observable<TMDBMovieModel[]> {
   // local array to store all movies
-  let allMovies: TMDBMovieModel[] = [];
+  let cache: TMDBMovieModel[] = [];
   return this.paginate$.pipe(
+    startWith(void 0),
     exhaustMap((v, i) =>
       // call requestFn with the page parameter, use the index from `exhaustMap`
       // as the index is not 0 based
       requestFn(i + 1).pipe(
-        map((movies) => [...allMovies, ...movies])
+        map((movies) => [...cache, ...movies])
       )
     ),
-    tap(movies => allMovies = movies)
+    tap(movies => cache = movies)
   );
 }
 
@@ -140,43 +189,10 @@ private paginate(
 
 Open the movie list in your browser and see if your pagination is properly working.
 
-.... You've probably noticed that the list is entirely empty. The reason for it is the `paginate$` Observable
-is not emitting an initial event. Go ahead and introduce the `startWith(void 0)` operator in order to kick off
-the pagination process immediately on subscription.
 
+## 2. Bonus: Use scan instead of the local cache
 
-<details>
-  <summary>pagination full solution</summary>
-
-```ts
-
-// movie-list-page.component.ts
-
-private paginate(
-  requestFn: (page: number) => Observable<TMDBMovieModel[]>
-): Observable<TMDBMovieModel[]> {
-  // local array to store all movies
-  let allMovies: TMDBMovieModel[] = [];
-  return this.paginate$.pipe(
-    startWith(void 0),
-    exhaustMap((v, i) =>
-      // call requestFn with the page parameter, use the index from `exhaustMap`
-      // as the index is not 0 based
-      requestFn(i + 1).pipe(
-        map((movies) => [...allMovies, ...movies])
-      )
-    ),
-    tap(movies => allMovies = movies)
-  );
-}
-
-```
-
-</details>
-
-## Bonus: Use scan instead of the local cache
-
-Try and replace the local `allMovies` array with a cleaner solution by using the `scan` operator.
+Try and replace the local `cache` array with a cleaner solution by using the `scan` operator.
 
 <details>
   <summary>paginate with scan</summary>
@@ -197,6 +213,89 @@ private paginate(
     ]), [] as TMDBMovieModel[])
   );
 }
+
+```
+
+</details>
+
+## Full Solution
+
+<details>
+  <summary>Infinite Scroller: MovieListPageComponent</summary>
+
+```ts
+
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import {
+  exhaustMap,
+  Observable,
+  scan,
+  startWith,
+  Subject,
+  switchMap,
+} from 'rxjs';
+
+import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
+import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { MovieService } from '../movie.service';
+import { MovieListComponent } from '../movie-list/movie-list.component';
+
+@Component({
+  selector: 'movie-list-page',
+  template: `
+    @if (movies$ | async; as movies) {
+      <movie-list [movies]="movies" />
+      <div (elementVisible)="paginate$.next()"></div>
+    } @else {
+      <div class="loader"></div>
+    }
+  `,
+  standalone: true,
+  imports: [
+    MovieListComponent,
+    ElementVisibilityDirective,
+    AsyncPipe,
+    FastSvgComponent,
+  ],
+})
+export class MovieListPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
+  paginate$ = new Subject<void>();
+
+  movies$: Observable<TMDBMovieModel[] | undefined> =
+    this.activatedRoute.params.pipe(
+      switchMap((params) => {
+        if (params['category']) {
+          return this.paginate((page) =>
+            this.movieService.getMovieList(params['category'], page),
+          ).pipe(startWith(undefined));
+        } else {
+          return this.paginate((page) =>
+            this.movieService.getMoviesByGenre(params['id'], page),
+          ).pipe(startWith(undefined));
+        }
+      }),
+    );
+
+  private paginate(
+    requestFn: (page: number) => Observable<TMDBMovieModel[]>,
+  ): Observable<TMDBMovieModel[]> {
+    return this.paginate$.pipe(
+      startWith(void 0),
+      exhaustMap((v, i) => requestFn(i + 1)),
+      scan(
+        (allMovies, movies) => [...allMovies, ...movies],
+        [] as TMDBMovieModel[],
+      ),
+    );
+  }
+}
+
 
 ```
 

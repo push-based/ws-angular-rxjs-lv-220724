@@ -1,254 +1,271 @@
-# MergeMap & groupBy Exercise
+# List Updates w/ mergeMap, groupBy & exhaustMap
 
-# Goal
+We've identified one key flaw in our current implementation of performing list updates. 
+All updates are simply processed in parallel, we are not accounting for individual responses. We are ending up giving the user the
+possibility to operate on data that is not in sync with our backend. 
 
-We want to display and manipulate the `favorite` state of a movie in the `MovieListPageComponent`. On top of that, we want to display individual
-loading indicators per item currently updating.
+We can fix this "easily", by again utilizing the power of rxjs operators, in this case `groupBy` & `exhaustMap`.
 
-## Fetch Favorite Movies
+## 1. Group, merge and exhaust movie updates
 
-In order to display the favorite state of a movie, we need to fetch the favorite list from the `MovieService`. The `MovieList` already
-expects an input of type `Record<string, MovieModel>`: A key-value map indicating if a movie is a favorite or not.
+What we want to achieve next is that we omit consequent updates if a request is currently in flight - per movie.
 
-In a first step, let's create a `BehaviorSubject<Record<string, MovieModel>>` which acts as our state for the favorite movies. We want to fill
-it with the data coming from the `getFavoriteMovies()` API from the `MovieService`.
+To do this we want to use a combination of `groupBy` & `exhaustMap`. 
 
+### 1.1 group by movie id
 
-<details>
-  <summary>Fetch Favorite Movies and transform into dictionary</summary>
+First, we want to group all requests being made by the `movie.id`. This will provide us with an individual
+trigger stream per movie.
 
 ```ts
 // movie-list-page.component.ts
 
-readonly favoritesMap$ = new BehaviorSubject<Record<string, MovieModel>>({});
 
+import { groupBy } from 'rxjs';
 
-this.movieService.getFavoriteMovies().subscribe(favorites => {
-  this.favoritesMap$.next(toDictionary(favorites, 'id'))
-});
+constructor() {
+  this.toggleFavorite$
+    .pipe(
+      groupBy(movie => movie.id),
+      /* old logic ... */
+    ).subscribe(/*cb*/)
+}
 ```
 
-</details>
+The outcome of `groupBy(movie => movie.id)` will be `Obervable<Obervable<TMDBMovieModel>>`.
 
-Cool, you can inspect the console and see if the call is being made. Note, that this is not a real http call, it's just a delay ;).
+### 1.2 merge & exhaust
 
-Now adjust the template so that the favorite movies can be displayed properly
+Now that we've got 1 stream per movie, we of course want to operate all of them in parallel, so let's use `mergeMap` again for this job!
 
-<details>
-  <summary>Pass favorite data to template</summary>
-
-```html
-<!-- movie-list-page.component.html-->
-
-<movie-list
-  [favorites]="favoritesMap$ | async"
-  *ngIf="movies && movies.length > 0; else: elseTmpl"
-  [movies]="movies">
-</movie-list>
-```
-
-</details>
-
-
-## Toggle Favorite Movie State
-
-As for now, the favorite state is read only. Let's implement functionality to let users also update the favorite state.
-We need to add two things to make it happen, a trigger that kicks off the update process and a subscription that updates the value
-at service level as well as the local state for displaying purposes.
-
-Create a `new Subject<MovieModel>();` as a trigger.
-As a final piece, we want to subscribe to the trigger and call the `toggleFavorite()` method of the `MovieService`. As soon as the callback
-returns a result, we update our local `favoritesMap$` to reflect the state change.
-
-> `toggleFavorite()` returns a boolean indicating if the given movie was added or removed from the favorites.
-
-As the updates for the list items should not abort or wait on each other, we want to make use of `mergeMap` to let all triggered events
-run in parallel.
-
-<details>
-  <summary>MovieListPageComponent</summary>
+From within `mergeMap()` we will have access to the `GroupedObservable`:
 
 ```ts
-
-// movie-list-page.component.ts
-
-readonly toggleFavorite$ = new Subject<MovieModel>();
-
-
-this.toggleFavorite$.pipe(
-  mergeMap(movie => this.movieService.toggleFavorite(movie).pipe(
-    /* compute new favorites based on the result */
-    /* if you need help, take a look at the next help block */
-  ))
-).subscribe(favorites => this.favoritesMap$.next(favorites))
-```
-
-</details>
-
-<details>
-  <summary>Transformation of toggleFavorite Result</summary>
-
-This is the transformation function to build the new favoritesMap after receiving the update from the MovieService
-
-```ts
-
-map(isFavorite => {
-    if (isFavorite) {
-      return {
-        ...this.favoritesMap$.getValue(),
-        [movie.id]: movie
-      }
-    }
-    const favoriteMap = {
-      ...this.favoritesMap$.getValue()
-    };
-    delete favoriteMap[movie.id];
-    return favoriteMap;
-  })
-
-```
-</details>
-
-You also need to call the trigger from the template.
-
-<details>
-  <summary>call trigger from template</summary>
-
-```html
-<!-- movie-list-page.component.html-->
-
-<movie-list
-  [favorites]="favoritesMap$ | async"
-  (favoriteToggled)="toggleFavorite$.next($event)"
-  *ngIf="movies && movies.length > 0; else: elseTmpl"
-  [movies]="movies">
-</movie-list>
-```
-
-</details>
-
-Nice, run the application and test out your result :).
-
-## Group Updates by movie ID
-
-As you've probably noticed, rage clicking the favorite state results in extreme weird behavior. What we want to achieve next is that we omit consequent
-updates if a request is currently in flight - per movie.
-
-To achieve this we want to use a combination of `groupBy` & `exhaustMap`. 
-
-<details>
-  <summary>Group & Exhaust update requests</summary>
-
-```ts
-
-// movie-list-page.component.ts
-
-/* group the updates by movieId and exhaustMap each of them to the toggleFavorite request */
-groupBy(movie => movie.id),
 mergeMap(movie$ => {
-  return movie$.pipe(
-    exhaustMap(movie => /* old update logic */)
-  )
+  /* we should exhaust here ;) */
 })
 ```
 
+The final part is to use `exhaustMap` on this individual stream. That enables us to omit consequent updates to an individual movie.
 
-</details>
+All of our old transformation logic will go inside of the `exhaustMap` callback.
 
 <details>
-  <summary>Group & Exhaust update requests: Full solution</summary>
+  <summary>group, merge & exhaust</summary>
 
 ```ts
 
 // movie-list-page.component.ts
 
-this.toggleFavorite$.pipe(
-  groupBy(movie => movie.id),
-  mergeMap(movie$ => {
-    return movie$.pipe(
-      exhaustMap(movie => this.movieService.toggleFavorite(movie).pipe(
-        map(isFavorite => {
-          if (isFavorite) {
-            return {
-              ...this.favoritesMap$.getValue(),
-              [movie.id]: movie
-            }
-          }
-          const favoriteMap = {
-            ...this.favoritesMap$.getValue()
-          };
-          delete favoriteMap[movie.id];
-          return favoriteMap;
-        })
-      ))
-    )
-  })
-).subscribe(favorites => this.favoritesMap$.next(favorites));
-```
-
-</details>
-
-Great, open the app again and try rage clicking :-D.
-
-## Show Loading Indicator while update is ongoing
-
-Finally, we also want to give users an idea about that something is actually going on instead of just blocking their rage click attempts.
-
-For fast read access, we again want to create a key-value pair of string to boolean for the loading states of our movie cards.
-
-Create a `favoritesLoadingMap$: BehaviorSubject<Record<string, boolean>>` which acts as state for our loadingMap.
-
-Now, fill the map accordingly whenever an update process starts and when it finishes.
-
-<details>
-  <summary>Group & Exhaust update requests: Full solution</summary>
-
-```ts
-
-// movie-list-page.component.ts
-
-favoritesLoadingMap$ = new BehaviorSubject<Record<string, boolean>>({});
-
-this.toggleFavorite$.pipe(
-  groupBy(movie => movie.id),
-  mergeMap(movie$ => {
-    return movie$.pipe(
-      exhaustMap(movie => {
-        this.favoritesLoadingMap$.next(
-          {...this.favoritesLoadingMap$.getValue(), [movie.id]: true }
-        );
-        
-        return this.movieService.toggleFavorite(movie).pipe(
-          map(isFavorite => {
-           /* code .. */
-          }),
-          tap(() => this.favoritesLoadingMap$.next({...this.favoritesLoadingMap$.getValue(), [movie.id]: false}))
+constructor() {
+  this.toggleFavorite$
+    .pipe(
+      // group updates by id
+      groupBy(movie => movie.id),
+      // process updates in parallel
+      mergeMap(movie$ => {
+        return movie$.pipe(
+          // exhaust individual streams -> blocking consequent updates
+          exhaustMap(movie => /* old update logic */)
         )
       })
-    )
-  })
-).subscribe(favorites => this.favoritesMap$.next(favorites));
+      /* old logic ... */
+    ).subscribe(/*cb*/)
+}
 ```
 
 </details>
-
-Also bind the `favoritesLoadingMap$` in the template.
 
 <details>
-  <summary>bind favoritesLoadingMap$ to template</summary>
+  <summary>The whole stream</summary>
 
-```html
-<!-- movie-list-page.component.html-->
+```ts
+// movie-list-page.component.ts
 
-<movie-list
-  [favorites]="favoritesMap$ | async"
-  [moviesLoading]="favoritesLoadingMap$ | async"
-  (favoriteToggled)="toggleFavorite$.next($event)"
-  *ngIf="movies && movies.length > 0; else: elseTmpl"
-  [movies]="movies">
-</movie-list>
+constructor() {
+  this.toggleFavorite$
+    .pipe(
+      mergeMap((movie) =>
+        this.movieService.toggleFavorite(movie).pipe(
+          map((isFavorite) => {
+            const favorites = this.favoriteIds$.getValue();
+            if (isFavorite) {
+              favorites.add(movie.id);
+            } else {
+              favorites.delete(movie.id);
+            }
+            const favoritesLoading = this.favoritesLoading$.getValue();
+            favoritesLoading.delete(movie.id);
+            return {
+              favoriteIds: new Set(favorites),
+              favoritesLoading: new Set(favoritesLoading),
+            };
+          }),
+          startWith<{
+            favoritesLoading: Set<string>;
+            favoriteIds?: Set<string>;
+          }>({
+            favoritesLoading: new Set(
+              this.favoritesLoading$.getValue().add(movie.id),
+            ),
+          }),
+        ),
+      ),
+    )
+    .subscribe(({ favoriteIds, favoritesLoading }) => {
+      if (favoriteIds) {
+        this.favoriteIds$.next(favoriteIds);
+      }
+      this.favoritesLoading$.next(favoritesLoading);
+    });
+}
+
 ```
 
 </details>
 
-Amazing, go ahead and use your newly built feature!
+Very good job!! Open the app again and try rage clicking :-D.
+
+
+## Full Solution
+
+<details>
+  <summary>Group & Exhaust update requests: Full solution</summary>
+
+```ts
+
+// movie-list-page.component.ts
+
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import {
+  BehaviorSubject,
+  exhaustMap,
+  groupBy,
+  map,
+  mergeMap,
+  Observable,
+  scan,
+  startWith,
+  Subject,
+  switchMap,
+} from 'rxjs';
+
+import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
+import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { MovieService } from '../movie.service';
+import { MovieListComponent } from '../movie-list/movie-list.component';
+
+@Component({
+  selector: 'movie-list-page',
+  template: `
+    @if (movies$ | async; as movies) {
+      <movie-list
+        [movies]="movies"
+        (favoriteToggled)="toggleFavorite$.next($event)"
+        [favoritesLoading]="(favoritesLoading$ | async)!"
+        [favoriteMovieIds]="(favoriteIds$ | async)!"
+      />
+      <div (elementVisible)="paginate$.next()"></div>
+    } @else {
+      <div class="loader"></div>
+    }
+  `,
+  standalone: true,
+  imports: [
+    MovieListComponent,
+    ElementVisibilityDirective,
+    AsyncPipe,
+    FastSvgComponent,
+  ],
+})
+export class MovieListPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
+  paginate$ = new Subject<void>();
+  toggleFavorite$ = new Subject<TMDBMovieModel>();
+
+  favoritesLoading$ = new BehaviorSubject<Set<string>>(new Set<string>());
+  favoriteIds$ = new BehaviorSubject<Set<string>>(new Set<string>());
+
+  movies$: Observable<TMDBMovieModel[] | undefined> =
+    this.activatedRoute.params.pipe(
+      switchMap((params) => {
+        if (params['category']) {
+          return this.paginate((page) =>
+            this.movieService.getMovieList(params['category'], page),
+          ).pipe(startWith(undefined));
+        } else {
+          return this.paginate((page) =>
+            this.movieService.getMoviesByGenre(params['id'], page),
+          ).pipe(startWith(undefined));
+        }
+      }),
+    );
+
+  constructor() {
+    this.movieService.getFavoriteMovies().subscribe((favorites) => {
+      this.favoriteIds$.next(new Set(favorites.map((favorite) => favorite.id)));
+    });
+    this.toggleFavorite$
+      .pipe(
+        groupBy((movie) => movie.id),
+        mergeMap((movie$) =>
+          movie$.pipe(
+            exhaustMap((movie) =>
+              this.movieService.toggleFavorite(movie).pipe(
+                map((isFavorite) => {
+                  const favorites = this.favoriteIds$.getValue();
+                  if (isFavorite) {
+                    favorites.add(movie.id);
+                  } else {
+                    favorites.delete(movie.id);
+                  }
+                  const favoritesLoading = this.favoritesLoading$.getValue();
+                  favoritesLoading.delete(movie.id);
+                  return {
+                    favoriteIds: new Set(favorites),
+                    favoritesLoading: new Set(favoritesLoading),
+                  };
+                }),
+                startWith<{
+                  favoritesLoading: Set<string>;
+                  favoriteIds?: Set<string>;
+                }>({
+                  favoritesLoading: new Set(
+                    this.favoritesLoading$.getValue().add(movie.id),
+                  ),
+                }),
+              ),
+            ),
+          ),
+        ),
+      )
+      .subscribe(({ favoriteIds, favoritesLoading }) => {
+        if (favoriteIds) {
+          this.favoriteIds$.next(favoriteIds);
+        }
+        this.favoritesLoading$.next(favoritesLoading);
+      });
+  }
+
+  private paginate(
+    requestFn: (page: number) => Observable<TMDBMovieModel[]>,
+  ): Observable<TMDBMovieModel[]> {
+    return this.paginate$.pipe(
+      startWith(void 0),
+      exhaustMap((v, i) => requestFn(i + 1)),
+      scan(
+        (allMovies, movies) => [...allMovies, ...movies],
+        [] as TMDBMovieModel[],
+      ),
+    );
+  }
+}
+```
+
+</details>
+
