@@ -43,10 +43,9 @@ a template which you need to repeat per genre coming as a result from the http c
 I suggest using the `@for` control flow to iterate over the genres, but you can choose to do
 otherwise as well.
 
-Here is an example for the `@for`, note that it is missing the async pipe you need to add for
-the exercise:
+Here is an example for the `@for` control flow with the async pipe:
 
-`@for (genre of genre; track 'id') `
+`@for (genre of genres$ | async; track 'id')`
 
 
 <details>

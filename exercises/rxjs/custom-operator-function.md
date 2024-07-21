@@ -155,7 +155,8 @@ movies$: Observable<Suspensify<TMDBMovieModel[]>> =
 
 ### 3.2 suspensify in MovieListPageComponent
 
-Also apply the `suspensify`
+Also apply the `suspensify` custom operator also to the `MovieListPageComponent`. For this you need to do similar
+steps as for the `MovieSearchPageComponent` + adjust the template.
 
 <details>
   <summary>Apply suspensify</summary>
@@ -164,21 +165,16 @@ Also apply the `suspensify`
 
 // movie-list-page.component.ts
 
-movies$: Observable<{
-  data: TMDBMovieModel[];
-  error: boolean;
-  suspense: boolean;
-}> = this.activatedRoute.params.pipe(
+movies$ = this.activatedRoute.params.pipe(
   switchMap((params) => {
-    console.log(params, 'params');
     if (params['category']) {
       return this.paginate((page) =>
         this.movieService.getMovieList(params['category'], page),
-      ).pipe.suspensify([] as TMDBMovieModel[])); // 👈️ apply here
+      ).pipe(suspensify([] as TMDBMovieModel[]));
     } else {
       return this.paginate((page) =>
         this.movieService.getMoviesByGenre(params['id'], page),
-      ).pipe.suspensify([] as TMDBMovieModel[])); // 👈️ apply here
+      ).pipe(suspensify([] as TMDBMovieModel[]));
     }
   }),
 );
@@ -194,11 +190,30 @@ Great! Now we only need to adjust the template so that we are able to see the re
 
 ```html
 
-
+@if (movies$ | async; as state) {
+  @if (state.suspense) {
+    <div class="loader"></div>
+  } @else if (state.error) {
+    <h2>An error occurred</h2>
+    <div>
+      <fast-svg size="350" name="sad" />
+    </div>
+  } @else {
+    <movie-list
+      [movies]="state.data"
+      (favoriteToggled)="toggleFavorite$.next($event)"
+      [favoritesLoading]="(favoritesLoading$ | async)!"
+      [favoriteMovieIds]="(favoriteIds$ | async)!"
+    />
+    <div (elementVisible)="paginate$.next()"></div>
+  }
+}
 
 ```
 
 </details>
+
+Good job! See if the loading spinner implementation is working when navigating between pages.
 
 ## Full Solution
 
@@ -249,6 +264,153 @@ export class MovieSearchPageComponent {
           .pipe(suspensify([] as TMDBMovieModel[]));
       }),
     );
+}
+
+
+```
+
+</details>
+
+<details>
+  <summary>MovieListPageComponent</summary>
+
+```ts
+
+import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import {
+  BehaviorSubject,
+  exhaustMap,
+  groupBy,
+  map,
+  mergeMap,
+  Observable,
+  scan,
+  startWith,
+  Subject,
+  switchMap,
+} from 'rxjs';
+
+import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
+import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { suspensify } from '../../shared/suspensify';
+import { MovieService } from '../movie.service';
+import { MovieListComponent } from '../movie-list/movie-list.component';
+
+@Component({
+  selector: 'movie-list-page',
+  template: `
+    @if (movies$ | async; as state) {
+      @if (state.suspense) {
+        <div class="loader"></div>
+      } @else if (state.error) {
+        <h2>An error occurred</h2>
+        <div>
+          <fast-svg size="350" name="sad" />
+        </div>
+      } @else {
+        <movie-list
+          [movies]="state.data"
+          (favoriteToggled)="toggleFavorite$.next($event)"
+          [favoritesLoading]="(favoritesLoading$ | async)!"
+          [favoriteMovieIds]="(favoriteIds$ | async)!"
+        />
+        <div (elementVisible)="paginate$.next()"></div>
+      }
+    }
+  `,
+  standalone: true,
+  imports: [
+    MovieListComponent,
+    ElementVisibilityDirective,
+    AsyncPipe,
+    FastSvgComponent,
+  ],
+})
+export class MovieListPageComponent {
+  private movieService = inject(MovieService);
+  private activatedRoute = inject(ActivatedRoute);
+
+  paginate$ = new Subject<void>();
+  toggleFavorite$ = new Subject<TMDBMovieModel>();
+
+  favoritesLoading$ = new BehaviorSubject<Set<string>>(new Set<string>());
+  favoriteIds$ = new BehaviorSubject<Set<string>>(new Set<string>());
+
+  movies$ = this.activatedRoute.params.pipe(
+    switchMap((params) => {
+      if (params['category']) {
+        return this.paginate((page) =>
+          this.movieService.getMovieList(params['category'], page),
+        ).pipe(suspensify([] as TMDBMovieModel[]));
+      } else {
+        return this.paginate((page) =>
+          this.movieService.getMoviesByGenre(params['id'], page),
+        ).pipe(suspensify([] as TMDBMovieModel[]));
+      }
+    }),
+  );
+
+  constructor() {
+    this.movieService.getFavoriteMovies().subscribe((favorites) => {
+      this.favoriteIds$.next(new Set(favorites.map((favorite) => favorite.id)));
+    });
+    this.toggleFavorite$
+      .pipe(
+        groupBy((movie) => movie.id),
+        mergeMap((movie$) =>
+          movie$.pipe(
+            exhaustMap((movie) =>
+              this.movieService.toggleFavorite(movie).pipe(
+                map((isFavorite) => {
+                  const favorites = this.favoriteIds$.getValue();
+                  if (isFavorite) {
+                    favorites.add(movie.id);
+                  } else {
+                    favorites.delete(movie.id);
+                  }
+                  const favoritesLoading = this.favoritesLoading$.getValue();
+                  favoritesLoading.delete(movie.id);
+                  return {
+                    favoriteIds: new Set(favorites),
+                    favoritesLoading: new Set(favoritesLoading),
+                  };
+                }),
+                startWith<{
+                  favoritesLoading: Set<string>;
+                  favoriteIds?: Set<string>;
+                }>({
+                  favoritesLoading: new Set(
+                    this.favoritesLoading$.getValue().add(movie.id),
+                  ),
+                }),
+              ),
+            ),
+          ),
+        ),
+      )
+      .subscribe(({ favoriteIds, favoritesLoading }) => {
+        if (favoriteIds) {
+          this.favoriteIds$.next(favoriteIds);
+        }
+        this.favoritesLoading$.next(favoritesLoading);
+      });
+  }
+
+  private paginate(
+    requestFn: (page: number) => Observable<TMDBMovieModel[]>,
+  ): Observable<TMDBMovieModel[]> {
+    return this.paginate$.pipe(
+      startWith(void 0),
+      exhaustMap((v, i) => requestFn(i + 1)),
+      scan(
+        (allMovies, movies) => [...allMovies, ...movies],
+        [] as TMDBMovieModel[],
+      ),
+    );
+  }
 }
 
 
