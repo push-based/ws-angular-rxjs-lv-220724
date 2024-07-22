@@ -11,7 +11,7 @@ consequent requests as long as we have a request inflight.
 > [!NOTE]
 > This exercise is being implemented in the `MovieListPageComponent` (`src/app/movie/movie-list-page/movie-list-page.component.ts`)
 
-### 1.2 The Trigger
+### 1.1 The Trigger
 
 As a first step we need a trigger that kicks off the process of re-fetching data. 
 The template part acting as trigger is already implemented and ready to use. The `ElementVisibilityDirective` emits an event everytime it
