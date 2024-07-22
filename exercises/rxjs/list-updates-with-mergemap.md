@@ -388,6 +388,7 @@ The rage clicking issue still persists though. Going to fix it soon 🤞
 
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import {
@@ -456,7 +457,7 @@ export class MovieListPageComponent {
     );
 
   constructor() {
-    this.movieService.getFavoriteMovies().subscribe((favorites) => {
+    this.movieService.getFavoriteMovies().pipe(takeUntilDestroyed()).subscribe((favorites) => {
       this.favoriteIds$.next(new Set(favorites.map((favorite) => favorite.id)));
     });
     this.toggleFavorite$
@@ -487,6 +488,7 @@ export class MovieListPageComponent {
             }),
           ),
         ),
+        takeUntilDestroyed()
       )
       .subscribe(({ favoriteIds, favoritesLoading }) => {
         if (favoriteIds) {
