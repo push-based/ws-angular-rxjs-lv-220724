@@ -65,6 +65,18 @@
     </a>
 
     <h3 class="navigation--headline">Genres</h3>
+    @for (genre of genres$ | async; track genre.id) {
+      <a
+        class="navigation--link"
+        [routerLink]="['/list', 'genre', genre.id]"
+        routerLinkActive="active"
+      >
+        <div class="navigation--menu-item">
+          <fast-svg class="navigation--menu-item-icon" name="genre" />
+          {{ genre.name }}
+        </div>
+      </a>
+    }
     <!-- genre link template to repeat
     <a
         class="navigation--link"

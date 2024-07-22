@@ -1,3 +1,4 @@
+import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -29,11 +30,14 @@ import { SideDrawerComponent } from '../ui/component/side-drawer/side-drawer.com
     SearchBarComponent,
     FormsModule,
     DarkModeToggleComponent,
+    AsyncPipe,
   ],
 })
 export class AppShellComponent {
   private movieService = inject(MovieService);
   private router = inject(Router);
+
+  genres$ = this.movieService.getGenres();
 
   sideDrawerOpen = false;
 
