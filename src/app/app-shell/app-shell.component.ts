@@ -1,7 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { filter } from 'rxjs';
 
 import { MovieService } from '../movie/movie.service';
 import { DarkModeToggleComponent } from '../ui/component/dark-mode-toggle/dark-mode-toggle.component';
@@ -40,5 +46,11 @@ export class AppShellComponent {
     return this._searchValue;
   }
 
-  constructor() {}
+  constructor() {
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.sideDrawerOpen = false;
+      });
+  }
 }

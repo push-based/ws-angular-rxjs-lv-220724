@@ -1,4 +1,6 @@
 import { Directive, ElementRef, input } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent, map, merge } from 'rxjs';
 
 @Directive({
   selector: '[tilt]',
@@ -8,9 +10,18 @@ export class TiltDirective {
   tiltDegree = input(5);
 
   constructor(private elementRef: ElementRef<HTMLElement>) {
-    // mouseenter => getRotationDegree
-    // mouseleave => getDefaultRotation
-    // elementRef.nativeElement.style.transform = value;
+    const rotate$ = fromEvent<MouseEvent>(
+      elementRef.nativeElement,
+      'mouseenter',
+    ).pipe(map((event) => this.getRotationDegree(event)));
+    const reset$ = fromEvent(elementRef.nativeElement, 'mouseleave').pipe(
+      map(() => this.getDefaultRotation()),
+    );
+    merge(rotate$, reset$)
+      .pipe(takeUntilDestroyed())
+      .subscribe((rotation) => {
+        elementRef.nativeElement.style.transform = rotation;
+      });
   }
 
   getRotationDegree(event: MouseEvent) {
