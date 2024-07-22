@@ -173,7 +173,7 @@ Serve your application, you should now notice that a loading spinner appears on 
 ## Full Solution
 
 <details>
-  <summary>Data fetching w/ switchMap: MovieSearchComponent</summary>
+  <summary>Data fetching w/ switchMap: MovieListPageComponent</summary>
 
 ```ts
 
