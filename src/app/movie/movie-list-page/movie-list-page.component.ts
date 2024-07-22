@@ -1,10 +1,12 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import {
   BehaviorSubject,
   exhaustMap,
+  groupBy,
   map,
   mergeMap,
   Observable,
@@ -69,34 +71,46 @@ export class MovieListPageComponent {
   );
 
   constructor() {
+    this.movieService
+      .getFavoriteMovies()
+      .pipe(takeUntilDestroyed())
+      .subscribe((movies) => {
+        this.favoriteIds$.next(new Set(movies.map((movie) => movie.id)));
+      });
     this.toggleFavorite$
       .pipe(
-        mergeMap((movie) =>
-          this.movieService.toggleFavorite(movie).pipe(
-            map((isFavorite) => {
-              const favoriteIds = this.favoriteIds$.getValue();
-              if (isFavorite) {
-                favoriteIds.add(movie.id);
-              } else {
-                favoriteIds.delete(movie.id);
-              }
-              const favoritesLoading = this.favoritesLoading$.getValue();
-              favoritesLoading.delete(movie.id);
-              return {
-                favoriteIds: new Set(favoriteIds),
-                favoritesLoading: new Set(favoritesLoading),
-              };
+        groupBy((movie) => movie.id),
+        mergeMap((movie$) => {
+          return movie$.pipe(
+            exhaustMap((movie) => {
+              return this.movieService.toggleFavorite(movie).pipe(
+                map((isFavorite) => {
+                  const favoriteIds = this.favoriteIds$.getValue();
+                  if (isFavorite) {
+                    favoriteIds.add(movie.id);
+                  } else {
+                    favoriteIds.delete(movie.id);
+                  }
+                  const favoritesLoading = this.favoritesLoading$.getValue();
+                  favoritesLoading.delete(movie.id);
+                  return {
+                    favoriteIds: new Set(favoriteIds),
+                    favoritesLoading: new Set(favoritesLoading),
+                  };
+                }),
+                startWith<{
+                  favoritesLoading: Set<string>;
+                  favoriteIds?: Set<string>;
+                }>({
+                  favoritesLoading: new Set(
+                    this.favoritesLoading$.getValue().add(movie.id),
+                  ),
+                }),
+              );
             }),
-            startWith<{
-              favoritesLoading: Set<string>;
-              favoriteIds?: Set<string>;
-            }>({
-              favoritesLoading: new Set(
-                this.favoritesLoading$.getValue().add(movie.id),
-              ),
-            }),
-          ),
-        ),
+          );
+        }),
+        takeUntilDestroyed(),
       )
       .subscribe(({ favoriteIds, favoritesLoading }) => {
         if (favoriteIds) {
