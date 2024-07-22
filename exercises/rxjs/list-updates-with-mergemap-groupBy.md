@@ -138,6 +138,7 @@ Very good job!! Open the app again and try rage clicking :-D.
 
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import {
@@ -163,10 +164,10 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
   template: `
     @if (movies$ | async; as movies) {
       <movie-list
-        [movies]="movies"
-        (favoriteToggled)="toggleFavorite$.next($event)"
-        [favoritesLoading]="(favoritesLoading$ | async)!"
         [favoriteMovieIds]="(favoriteIds$ | async)!"
+        [favoritesLoading]="(favoritesLoading$ | async)!"
+        (favoriteToggled)="toggleFavorite$.next($event)"
+        [movies]="movies"
       />
       <div (elementVisible)="paginate$.next()"></div>
     } @else {
@@ -177,57 +178,61 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
   imports: [
     MovieListComponent,
     ElementVisibilityDirective,
-    AsyncPipe,
     FastSvgComponent,
+    AsyncPipe,
   ],
 })
 export class MovieListPageComponent {
-  private movieService = inject(MovieService);
   private activatedRoute = inject(ActivatedRoute);
+  private movieService = inject(MovieService);
 
-  paginate$ = new Subject<void>();
+  // trigger
   toggleFavorite$ = new Subject<TMDBMovieModel>();
+  paginate$ = new Subject<void>();
 
-  favoritesLoading$ = new BehaviorSubject<Set<string>>(new Set<string>());
-  favoriteIds$ = new BehaviorSubject<Set<string>>(new Set<string>());
+  // state
+  favoriteIds$ = new BehaviorSubject(new Set<string>());
+  favoritesLoading$ = new BehaviorSubject(new Set<string>());
 
-  movies$: Observable<TMDBMovieModel[] | undefined> =
-    this.activatedRoute.params.pipe(
-      switchMap((params) => {
-        if (params['category']) {
-          return this.paginate((page) =>
-            this.movieService.getMovieList(params['category'], page),
-          ).pipe(startWith(undefined));
-        } else {
-          return this.paginate((page) =>
-            this.movieService.getMoviesByGenre(params['id'], page),
-          ).pipe(startWith(undefined));
-        }
-      }),
-    );
+  movies$ = this.activatedRoute.params.pipe(
+    switchMap((params) => {
+      if (params.category) {
+        return this.paginate((page) => {
+          return this.movieService.getMovieList(params.category, page);
+        }).pipe(startWith(undefined));
+      } else {
+        return this.paginate((page) => {
+          return this.movieService.getMoviesByGenre(params.id, page);
+        }).pipe(startWith(undefined));
+      }
+    }),
+  );
 
   constructor() {
-    this.movieService.getFavoriteMovies().subscribe((favorites) => {
-      this.favoriteIds$.next(new Set(favorites.map((favorite) => favorite.id)));
-    });
+    this.movieService
+      .getFavoriteMovies()
+      .pipe(takeUntilDestroyed())
+      .subscribe((movies) => {
+        this.favoriteIds$.next(new Set(movies.map((movie) => movie.id)));
+      });
     this.toggleFavorite$
       .pipe(
         groupBy((movie) => movie.id),
-        mergeMap((movie$) =>
-          movie$.pipe(
-            exhaustMap((movie) =>
-              this.movieService.toggleFavorite(movie).pipe(
+        mergeMap((movie$) => {
+          return movie$.pipe(
+            exhaustMap((movie) => {
+              return this.movieService.toggleFavorite(movie).pipe(
                 map((isFavorite) => {
-                  const favorites = this.favoriteIds$.getValue();
+                  const favoriteIds = this.favoriteIds$.getValue();
                   if (isFavorite) {
-                    favorites.add(movie.id);
+                    favoriteIds.add(movie.id);
                   } else {
-                    favorites.delete(movie.id);
+                    favoriteIds.delete(movie.id);
                   }
                   const favoritesLoading = this.favoritesLoading$.getValue();
                   favoritesLoading.delete(movie.id);
                   return {
-                    favoriteIds: new Set(favorites),
+                    favoriteIds: new Set(favoriteIds),
                     favoritesLoading: new Set(favoritesLoading),
                   };
                 }),
@@ -239,10 +244,11 @@ export class MovieListPageComponent {
                     this.favoritesLoading$.getValue().add(movie.id),
                   ),
                 }),
-              ),
-            ),
-          ),
-        ),
+              );
+            }),
+          );
+        }),
+        takeUntilDestroyed(),
       )
       .subscribe(({ favoriteIds, favoritesLoading }) => {
         if (favoriteIds) {
@@ -252,16 +258,15 @@ export class MovieListPageComponent {
       });
   }
 
-  private paginate(
-    requestFn: (page: number) => Observable<TMDBMovieModel[]>,
-  ): Observable<TMDBMovieModel[]> {
+  private paginate(paginateFn: (page: number) => Observable<TMDBMovieModel[]>) {
     return this.paginate$.pipe(
       startWith(void 0),
-      exhaustMap((v, i) => requestFn(i + 1)),
-      scan(
-        (allMovies, movies) => [...allMovies, ...movies],
-        [] as TMDBMovieModel[],
-      ),
+      exhaustMap((_, i) => {
+        return paginateFn(i + 1);
+      }),
+      scan((allMovies, pagedMovies) => {
+        return [...allMovies, ...pagedMovies];
+      }, [] as TMDBMovieModel[]),
     );
   }
 }
