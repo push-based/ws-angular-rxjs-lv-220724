@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import {
   BehaviorSubject,
+  combineLatest,
   exhaustMap,
   groupBy,
   map,
@@ -14,6 +15,7 @@ import {
   startWith,
   Subject,
   switchMap,
+  withLatestFrom,
 } from 'rxjs';
 
 import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
@@ -25,19 +27,28 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
 @Component({
   selector: 'movie-list-page',
   template: `
-    @if (movies$ | async; as state) {
-      @if (state.suspense) {
+    <div class="favorite-widget">
+      @for (fav of favoriteMovies$ | async; track fav.id) {
+        <span (click)="toggleFavorite$.next(fav)">{{ fav.title }}</span>
+
+        @if (!$last) {
+          <span>•</span>
+        }
+      }
+    </div>
+    @if (viewModel$ | async; as vm) {
+      @if (vm.movieState.suspense) {
         <div class="loader"></div>
-      } @else if (state.error) {
+      } @else if (vm.movieState.error) {
         <h2>An error occurred</h2>
-        <p>{{ state.error.name }}: {{ state.error.message }}</p>
+        <p>{{ vm.movieState.error.name }}: {{ vm.movieState.error.message }}</p>
         <div><fast-svg name="sad" size="350" /></div>
       } @else {
         <movie-list
-          [favoriteMovieIds]="(favoriteIds$ | async)!"
-          [favoritesLoading]="(favoritesLoading$ | async)!"
+          [favoriteMovieIds]="vm.favoriteIds"
+          [favoritesLoading]="vm.favoritesLoading"
           (favoriteToggled)="toggleFavorite$.next($event)"
-          [movies]="state.data!"
+          [movies]="vm.movieState.data!"
         />
         <div (elementVisible)="paginate$.next()"></div>
       }
@@ -77,6 +88,20 @@ export class MovieListPageComponent {
     }),
   );
 
+  favoriteMovies$ = combineLatest([this.movies$, this.favoriteIds$]).pipe(
+    map(([movieState, favoriteIds]) => {
+      return (movieState.data ?? []).filter((movie) => {
+        return favoriteIds.has(movie.id);
+      });
+    }),
+  );
+
+  viewModel$ = combineLatest({
+    movieState: this.movies$,
+    favoriteIds: this.favoriteIds$,
+    favoritesLoading: this.favoritesLoading$,
+  });
+
   constructor() {
     this.movieService
       .getFavoriteMovies()
@@ -91,14 +116,13 @@ export class MovieListPageComponent {
           return movie$.pipe(
             exhaustMap((movie) => {
               return this.movieService.toggleFavorite(movie).pipe(
-                map((isFavorite) => {
-                  const favoriteIds = this.favoriteIds$.getValue();
+                withLatestFrom(this.favoriteIds$, this.favoritesLoading$),
+                map(([isFavorite, favoriteIds, favoritesLoading]) => {
                   if (isFavorite) {
                     favoriteIds.add(movie.id);
                   } else {
                     favoriteIds.delete(movie.id);
                   }
-                  const favoritesLoading = this.favoritesLoading$.getValue();
                   favoritesLoading.delete(movie.id);
                   return {
                     favoriteIds: new Set(favoriteIds),
