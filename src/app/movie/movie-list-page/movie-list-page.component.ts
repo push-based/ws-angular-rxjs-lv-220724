@@ -1,11 +1,9 @@
 import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { rxState } from '@rx-angular/state';
 import {
-  BehaviorSubject,
-  combineLatest,
   exhaustMap,
   groupBy,
   map,
@@ -20,7 +18,7 @@ import {
 
 import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
 import { TMDBMovieModel } from '../../shared/model/movie.model';
-import { suspensify } from '../../shared/suspensify';
+import { Suspensify, suspensify } from '../../shared/suspensify';
 import { MovieService } from '../movie.service';
 import { MovieListComponent } from '../movie-list/movie-list.component';
 
@@ -37,18 +35,18 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
       }
     </div>
     @if (viewModel$ | async; as vm) {
-      @if (vm.movieState.suspense) {
+      @if (vm.movies.suspense) {
         <div class="loader"></div>
-      } @else if (vm.movieState.error) {
+      } @else if (vm.movies.error) {
         <h2>An error occurred</h2>
-        <p>{{ vm.movieState.error.name }}: {{ vm.movieState.error.message }}</p>
+        <p>{{ vm.movies.error.name }}: {{ vm.movies.error.message }}</p>
         <div><fast-svg name="sad" size="350" /></div>
       } @else {
         <movie-list
           [favoriteMovieIds]="vm.favoriteIds"
           [favoritesLoading]="vm.favoritesLoading"
           (favoriteToggled)="toggleFavorite$.next($event)"
-          [movies]="vm.movieState.data!"
+          [movies]="vm.movies.data!"
         />
         <div (elementVisible)="paginate$.next()"></div>
       }
@@ -71,9 +69,6 @@ export class MovieListPageComponent {
   paginate$ = new Subject<void>();
 
   // state
-  favoriteIds$ = new BehaviorSubject(new Set<string>());
-  favoritesLoading$ = new BehaviorSubject(new Set<string>());
-
   movies$ = this.activatedRoute.params.pipe(
     switchMap((params) => {
       if (params.category) {
@@ -88,35 +83,40 @@ export class MovieListPageComponent {
     }),
   );
 
-  favoriteMovies$ = combineLatest([this.movies$, this.favoriteIds$]).pipe(
-    map(([movieState, favoriteIds]) => {
-      return (movieState.data ?? []).filter((movie) => {
-        return favoriteIds.has(movie.id);
-      });
-    }),
-  );
+  state = rxState<{
+    movies: Suspensify<TMDBMovieModel[] | null>;
+    favoriteIds: Set<string>;
+    favoritesLoading: Set<string>;
+  }>(({ set, select, get, connect }) => {
+    // set initial state
+    set({
+      favoriteIds: new Set<string>(),
+      favoritesLoading: new Set<string>(),
+    });
 
-  viewModel$ = combineLatest({
-    movieState: this.movies$,
-    favoriteIds: this.favoriteIds$,
-    favoritesLoading: this.favoritesLoading$,
-  });
+    // connect favoriteIds
+    connect(
+      'favoriteIds',
+      this.movieService
+        .getFavoriteMovies()
+        .pipe(map((movies) => new Set(movies.map((movie) => movie.id)))),
+    );
 
-  constructor() {
-    this.movieService
-      .getFavoriteMovies()
-      .pipe(takeUntilDestroyed())
-      .subscribe((movies) => {
-        this.favoriteIds$.next(new Set(movies.map((movie) => movie.id)));
-      });
-    this.toggleFavorite$
-      .pipe(
+    // connect movieState slice
+    connect('movies', this.movies$);
+
+    // connect { favoriteIds } & { favoritesLoading } slice
+    connect(
+      this.toggleFavorite$.pipe(
         groupBy((movie) => movie.id),
         mergeMap((movie$) => {
           return movie$.pipe(
             exhaustMap((movie) => {
               return this.movieService.toggleFavorite(movie).pipe(
-                withLatestFrom(this.favoriteIds$, this.favoritesLoading$),
+                withLatestFrom(
+                  select('favoriteIds'),
+                  select('favoritesLoading'),
+                ),
                 map(([isFavorite, favoriteIds, favoritesLoading]) => {
                   if (isFavorite) {
                     favoriteIds.add(movie.id);
@@ -134,22 +134,26 @@ export class MovieListPageComponent {
                   favoriteIds?: Set<string>;
                 }>({
                   favoritesLoading: new Set(
-                    this.favoritesLoading$.getValue().add(movie.id),
+                    get('favoritesLoading').add(movie.id),
                   ),
                 }),
               );
             }),
           );
         }),
-        takeUntilDestroyed(),
-      )
-      .subscribe(({ favoriteIds, favoritesLoading }) => {
-        if (favoriteIds) {
-          this.favoriteIds$.next(favoriteIds);
-        }
-        this.favoritesLoading$.next(favoritesLoading);
-      });
-  }
+      ),
+    );
+  });
+
+  // viewModel creation
+  viewModel$ = this.state.select();
+
+  // state derivation
+  favoriteMovies$ = this.state.select(
+    ['movies', 'favoriteIds'],
+    ({ movies, favoriteIds }) =>
+      (movies.data ?? []).filter((movie) => favoriteIds.has(movie.id)),
+  );
 
   private paginate(paginateFn: (page: number) => Observable<TMDBMovieModel[]>) {
     return this.paginate$.pipe(
