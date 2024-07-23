@@ -1,5 +1,6 @@
 import { AsyncPipe, DatePipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import { startWith, switchMap } from 'rxjs';
@@ -25,7 +26,7 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
   ],
   template: `
     <div class="movie-detail-wrapper">
-      @if (movie$ | async; as movie) {
+      @if (movie(); as movie) {
         <ui-detail-grid>
           <div detailGridMedia>
             <img
@@ -75,7 +76,7 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
               <h3>The Cast</h3>
               <div class="movie-detail--cast-list">
                 <div class="cast-list">
-                  @for (actor of (credits$ | async)?.cast; track actor.id) {
+                  @for (actor of credits()?.cast; track actor.id) {
                     <div class="movie-detail--cast-actor">
                       <img
                         loading="lazy"
@@ -133,7 +134,7 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
         <h1>Recommended</h1>
         <h2>Movies</h2>
       </header>
-      @if (recommendations$ | async; as recommendations) {
+      @if (recommendations(); as recommendations) {
         <movie-list [movies]="recommendations!" />
       } @else {
         <div class="loader"></div>
@@ -146,22 +147,28 @@ export class MovieDetailPageComponent {
   route = inject(ActivatedRoute);
   movieService = inject(MovieService);
 
-  movie$ = this.route.params.pipe(
-    switchMap((params) =>
-      this.movieService.getMovieById(params.id).pipe(startWith(null)),
+  movie = toSignal(
+    this.route.params.pipe(
+      switchMap((params) =>
+        this.movieService.getMovieById(params.id).pipe(startWith(null)),
+      ),
     ),
   );
 
-  credits$ = this.route.params.pipe(
-    switchMap((params) =>
-      this.movieService.getMovieCredits(params.id).pipe(startWith(null)),
+  credits = toSignal(
+    this.route.params.pipe(
+      switchMap((params) =>
+        this.movieService.getMovieCredits(params.id).pipe(startWith(null)),
+      ),
     ),
   );
-  recommendations$ = this.route.params.pipe(
-    switchMap((params) =>
-      this.movieService
-        .getMovieRecommendations(params.id)
-        .pipe(startWith(null)),
+  recommendations = toSignal(
+    this.route.params.pipe(
+      switchMap((params) =>
+        this.movieService
+          .getMovieRecommendations(params.id)
+          .pipe(startWith(null)),
+      ),
     ),
   );
 

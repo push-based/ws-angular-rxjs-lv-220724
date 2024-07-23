@@ -1,5 +1,5 @@
 import { AsyncPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, Signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
 import { rxState } from '@rx-angular/state';
@@ -26,7 +26,7 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
   selector: 'movie-list-page',
   template: `
     <div class="favorite-widget">
-      @for (fav of favoriteMovies$ | async; track fav.id) {
+      @for (fav of favoriteMovies(); track fav.id) {
         <span (click)="toggleFavorite$.next(fav)">{{ fav.title }}</span>
 
         @if (!$last) {
@@ -34,22 +34,20 @@ import { MovieListComponent } from '../movie-list/movie-list.component';
         }
       }
     </div>
-    @if (viewModel$ | async; as vm) {
-      @if (vm.movies.suspense) {
-        <div class="loader"></div>
-      } @else if (vm.movies.error) {
-        <h2>An error occurred</h2>
-        <p>{{ vm.movies.error.name }}: {{ vm.movies.error.message }}</p>
-        <div><fast-svg name="sad" size="350" /></div>
-      } @else {
-        <movie-list
-          [favoriteMovieIds]="vm.favoriteIds"
-          [favoritesLoading]="vm.favoritesLoading"
-          (favoriteToggled)="toggleFavorite$.next($event)"
-          [movies]="vm.movies.data!"
-        />
-        <div (elementVisible)="paginate$.next()"></div>
-      }
+    @if (movies().suspense) {
+      <div class="loader"></div>
+    } @else if (movies().error) {
+      <h2>An error occurred</h2>
+      <p>{{ movies().error!.name }}: {{ movies().error!.message }}</p>
+      <div><fast-svg name="sad" size="350" /></div>
+    } @else {
+      <movie-list
+        [favoriteMovieIds]="favoriteIds()"
+        [favoritesLoading]="favoritesLoading()"
+        (favoriteToggled)="toggleFavorite$.next($event)"
+        [movies]="movies().data!"
+      />
+      <div (elementVisible)="paginate$.next()"></div>
     }
   `,
   standalone: true,
@@ -69,20 +67,6 @@ export class MovieListPageComponent {
   paginate$ = new Subject<void>();
 
   // state
-  movies$ = this.activatedRoute.params.pipe(
-    switchMap((params) => {
-      if (params.category) {
-        return this.paginate((page) => {
-          return this.movieService.getMovieList(params.category, page);
-        }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
-      } else {
-        return this.paginate((page) => {
-          return this.movieService.getMoviesByGenre(params.id, page);
-        }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
-      }
-    }),
-  );
-
   state = rxState<{
     movies: Suspensify<TMDBMovieModel[] | null>;
     favoriteIds: Set<string>;
@@ -103,7 +87,22 @@ export class MovieListPageComponent {
     );
 
     // connect movieState slice
-    connect('movies', this.movies$);
+    connect(
+      'movies',
+      this.activatedRoute.params.pipe(
+        switchMap((params) => {
+          if (params.category) {
+            return this.paginate((page) => {
+              return this.movieService.getMovieList(params.category, page);
+            }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
+          } else {
+            return this.paginate((page) => {
+              return this.movieService.getMoviesByGenre(params.id, page);
+            }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
+          }
+        }),
+      ),
+    );
 
     // connect { favoriteIds } & { favoritesLoading } slice
     connect(
@@ -146,14 +145,15 @@ export class MovieListPageComponent {
   });
 
   // viewModel creation
-  viewModel$ = this.state.select();
+  movies: Signal<Suspensify<TMDBMovieModel[] | null>> =
+    this.state.signal('movies');
+  favoriteIds = this.state.signal('favoriteIds');
+  favoritesLoading = this.state.signal('favoritesLoading');
 
   // state derivation
-  favoriteMovies$ = this.state.select(
-    ['movies', 'favoriteIds'],
-    ({ movies, favoriteIds }) =>
-      (movies.data ?? []).filter((movie) => favoriteIds.has(movie.id)),
-  );
+  favoriteMovies = this.state.computed(({ movies, favoriteIds }) => {
+    return (movies().data ?? []).filter((movie) => favoriteIds().has(movie.id));
+  });
 
   private paginate(paginateFn: (page: number) => Observable<TMDBMovieModel[]>) {
     return this.paginate$.pipe(
