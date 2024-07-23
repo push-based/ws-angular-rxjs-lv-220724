@@ -18,22 +18,29 @@ import {
 
 import { ElementVisibilityDirective } from '../../shared/cdk/element-visibility/element-visibility.directive';
 import { TMDBMovieModel } from '../../shared/model/movie.model';
+import { suspensify } from '../../shared/suspensify';
 import { MovieService } from '../movie.service';
 import { MovieListComponent } from '../movie-list/movie-list.component';
 
 @Component({
   selector: 'movie-list-page',
   template: `
-    @if (movies$ | async; as movies) {
-      <movie-list
-        [favoriteMovieIds]="(favoriteIds$ | async)!"
-        [favoritesLoading]="(favoritesLoading$ | async)!"
-        (favoriteToggled)="toggleFavorite$.next($event)"
-        [movies]="movies"
-      />
-      <div (elementVisible)="paginate$.next()"></div>
-    } @else {
-      <div class="loader"></div>
+    @if (movies$ | async; as state) {
+      @if (state.suspense) {
+        <div class="loader"></div>
+      } @else if (state.error) {
+        <h2>An error occurred</h2>
+        <p>{{ state.error.name }}: {{ state.error.message }}</p>
+        <div><fast-svg name="sad" size="350" /></div>
+      } @else {
+        <movie-list
+          [favoriteMovieIds]="(favoriteIds$ | async)!"
+          [favoritesLoading]="(favoritesLoading$ | async)!"
+          (favoriteToggled)="toggleFavorite$.next($event)"
+          [movies]="state.data!"
+        />
+        <div (elementVisible)="paginate$.next()"></div>
+      }
     }
   `,
   standalone: true,
@@ -61,11 +68,11 @@ export class MovieListPageComponent {
       if (params.category) {
         return this.paginate((page) => {
           return this.movieService.getMovieList(params.category, page);
-        }).pipe(startWith(undefined));
+        }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
       } else {
         return this.paginate((page) => {
           return this.movieService.getMoviesByGenre(params.id, page);
-        }).pipe(startWith(undefined));
+        }).pipe(suspensify<TMDBMovieModel[] | null>(null, { count: 0 }));
       }
     }),
   );
