@@ -50,7 +50,7 @@ npm run start
 13. [Multicasting](./exercises/rxjs/multicasting.md)
 14. [Reactive State Management](./exercises/rxjs/local-state-with-rx-state.md)
 15. [Side Effects & Actions](./exercises/rxjs/side-effects-actions.md)
-16. [Signal rxjs interop](./exercises/rxjs/signals-rxjs-interop)
+16. [Signal rxjs interop](./exercises/rxjs/signals-rxjs-interop.md)
 17. [JS Event Loop](./exercises/event-loop.md)
 18. [Rate Limiting & Scheduling](./exercises/rxjs/rate-limiting.md)
 19. [Marble & other rxjs Testing](exercises/rxjs/marble-testing.md)
