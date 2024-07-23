@@ -1,17 +1,31 @@
 import { Directive, ElementRef, input } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { fromEvent, map, merge } from 'rxjs';
 
 @Directive({
   selector: '[tilt]',
   standalone: true,
+  host: {
+    '[style.transform]': 'rotation()',
+  },
 })
 export class TiltDirective {
   tiltDegree = input(5);
 
-  constructor(private elementRef: ElementRef<HTMLElement>) {
-    // mouseenter => getRotationDegree
-    // mouseleave => getDefaultRotation
-    // elementRef.nativeElement.style.transform = value;
-  }
+  rotate$ = fromEvent<MouseEvent>(
+    this.elementRef.nativeElement,
+    'mouseenter',
+  ).pipe(map((event) => this.getRotationDegree(event)));
+
+  reset$ = fromEvent(this.elementRef.nativeElement, 'mouseleave').pipe(
+    map(() => this.getDefaultRotation()),
+  );
+
+  rotation = toSignal(merge(this.rotate$, this.reset$), {
+    initialValue: this.getDefaultRotation(),
+  });
+
+  constructor(private elementRef: ElementRef<HTMLElement>) {}
 
   getRotationDegree(event: MouseEvent) {
     const pos = this.determineDirection(event.pageX);

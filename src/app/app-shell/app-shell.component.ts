@@ -1,7 +1,14 @@
+import { AsyncPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
 import { FastSvgComponent } from '@push-based/ngx-fast-svg';
+import { filter } from 'rxjs';
 
 import { MovieService } from '../movie/movie.service';
 import { DarkModeToggleComponent } from '../ui/component/dark-mode-toggle/dark-mode-toggle.component';
@@ -23,11 +30,14 @@ import { SideDrawerComponent } from '../ui/component/side-drawer/side-drawer.com
     SearchBarComponent,
     FormsModule,
     DarkModeToggleComponent,
+    AsyncPipe,
   ],
 })
 export class AppShellComponent {
   private movieService = inject(MovieService);
   private router = inject(Router);
+
+  genres$ = this.movieService.getGenres();
 
   sideDrawerOpen = false;
 
@@ -40,5 +50,11 @@ export class AppShellComponent {
     return this._searchValue;
   }
 
-  constructor() {}
+  constructor() {
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        this.sideDrawerOpen = false;
+      });
+  }
 }
